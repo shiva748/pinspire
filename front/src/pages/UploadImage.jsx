@@ -1,6 +1,6 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useAnimation } from "framer-motion";
 
 const UploadImage = () => {
   const [step, setStep] = useState(1);
@@ -15,9 +15,28 @@ const UploadImage = () => {
   const [errors, setErrors] = useState({});
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState(1);
+  const [activeInput, setActiveInput] = useState(null);
 
   const fileInputRef = useRef(null);
+  const uploadProgressRef = useRef(null);
+  const titleInputRef = useRef(null);
+  const descriptionInputRef = useRef(null);
+  const tagInputRef = useRef(null);
+  const formRef = useRef(null);
+  const controls = useAnimation();
   const navigate = useNavigate();
+
+  // Spring animation for progress bar
+  const progressSpring = useSpring(0, { stiffness: 100, damping: 30 });
+  
+  useEffect(() => {
+    progressSpring.set(uploadProgress);
+  }, [uploadProgress, progressSpring]);
+  
+  const progressBarWidth = useTransform(progressSpring, [0, 100], ["0%", "100%"]);
 
   // Handle file selection
   const handleFileChange = (e) => {
@@ -157,7 +176,7 @@ const UploadImage = () => {
     setStep(step - 1);
   };
 
-  // Handle form submission
+  // Enhanced handleSubmit with progress simulation
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -166,6 +185,16 @@ const UploadImage = () => {
     }
 
     setIsLoading(true);
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        const newProgress = prev + (Math.random() * 15);
+        return newProgress >= 90 ? 90 : newProgress;
+      });
+    }, 400);
 
     try {
       const formData = new FormData();
@@ -174,7 +203,6 @@ const UploadImage = () => {
       formData.append('file', imageFile);
       
       // The backend expects a field called 'metadata' with stringified JSON
-      // The busboy parser will parse this JSON directly in the backend
       formData.append('metadata', JSON.stringify({
         title,
         description,
@@ -187,60 +215,37 @@ const UploadImage = () => {
         credentials: 'include',
       });
 
+      // Complete the progress
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // Pause briefly at 100% before proceeding
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const data = await response.json();
 
       if (response.ok) {
-        // Add custom success notification
-        const successNotification = document.createElement('div');
-        successNotification.className = 'fixed top-20 right-4 z-50 bg-white rounded-lg shadow-md p-4 flex items-start gap-3 max-w-xs animate-slide-in';
-        successNotification.innerHTML = `
-          <div class="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-success/10 flex items-center justify-center">
-            <svg class="w-3 h-3 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div>
-            <p class="font-medium text-sm">Your Pin has been successfully uploaded. Please wait while we review and approve your image.</p>
-          </div>
-        `;
-        successNotification.style.cssText = 'animation: slideIn 0.3s ease-out forwards;';
-        document.body.appendChild(successNotification);
-        
-        // Add animation to CSS
-        const styleTag = document.createElement('style');
-        styleTag.textContent = `
-          @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-          }
-        `;
-        document.head.appendChild(styleTag);
-        
-        // Remove after 5 seconds
-        setTimeout(() => {
-          successNotification.style.cssText = 'animation: slideOut 0.3s ease-in forwards;';
-          styleTag.textContent += `
-            @keyframes slideOut {
-              from { transform: translateX(0); opacity: 1; }
-              to { transform: translateX(100%); opacity: 0; }
-            }
-          `;
-          setTimeout(() => {
-            document.body.removeChild(successNotification);
-            document.head.removeChild(styleTag);
-          }, 300);
-        }, 5000);
-        
         setUploadedImageUrl(data.filePath);
         setStep(3); // Move to success step
       } else {
         setError(data.message || "Failed to upload image");
+        controls.start({
+          x: [0, -10, 10, -10, 10, 0],
+          transition: { duration: 0.5 }
+        });
       }
     } catch (error) {
       console.error("Error uploading image:", error);
       setError("An unexpected error occurred");
+      
+      controls.start({
+        x: [0, -10, 10, -10, 10, 0],
+        transition: { duration: 0.5 }
+      });
     } finally {
+      clearInterval(progressInterval);
       setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
@@ -249,15 +254,27 @@ const UploadImage = () => {
     <div className="flex items-center justify-center mb-8">
       <div className="flex items-center">
         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 1 ? 'bg-primary text-primary-content' : 'bg-base-300'}`}>
-          1
+          {step > 1 ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <span className="font-medium">1</span>
+          )}
         </div>
         <div className={`w-20 h-1 ${step >= 2 ? 'bg-primary' : 'bg-base-300'}`}></div>
         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 2 ? 'bg-primary text-primary-content' : 'bg-base-300'}`}>
-          2
+          {step > 2 ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <span className="font-medium">2</span>
+          )}
         </div>
         <div className={`w-20 h-1 ${step >= 3 ? 'bg-primary' : 'bg-base-300'}`}></div>
         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 3 ? 'bg-primary text-primary-content' : 'bg-base-300'}`}>
-          3
+          <span className="font-medium">3</span>
         </div>
       </div>
     </div>
@@ -276,9 +293,10 @@ const UploadImage = () => {
             className="w-full"
           >
             <h2 className="text-xl font-bold mb-6 text-center">Choose an image to upload</h2>
+            
             <div 
-              className={`border-2 border-dashed rounded-lg p-4 h-80 sm:h-96 flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                isDragging ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50'
+              className={`border-2 border-dashed rounded-lg p-6 h-80 sm:h-96 flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50 hover:bg-base-200/30'
               } ${errors.file ? 'border-error' : ''}`}
               onClick={() => fileInputRef.current.click()}
               onDragEnter={handleDragEnter}
@@ -291,11 +309,12 @@ const UploadImage = () => {
                   <img 
                     src={imagePreview} 
                     alt="Preview" 
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain rounded-lg"
+                    style={{ maxHeight: "calc(100% - 10px)" }}
                   />
                   <button 
                     type="button" 
-                    className="absolute top-2 right-2 bg-base-100 rounded-full p-1 shadow-md hover:bg-base-200"
+                    className="absolute top-2 right-2 bg-base-100/90 rounded-full p-2 shadow-sm hover:bg-error/10 hover:text-error"
                     onClick={(e) => {
                       e.stopPropagation();
                       setImageFile(null);
@@ -308,15 +327,15 @@ const UploadImage = () => {
                   </button>
                 </div>
               ) : (
-                <>
+                <div className="flex flex-col items-center justify-center">
                   <svg className="w-16 h-16 text-base-content/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <p className="text-base-content/70 text-center text-lg">
                     <span className="font-medium text-primary">Click to upload</span> or drag and drop
                   </p>
-                  <p className="text-sm text-base-content/50 mt-1">PNG, JPG (max 5MB)</p>
-                </>
+                  <p className="text-sm text-base-content/50 mt-2">PNG, JPG (max 5MB)</p>
+                </div>
               )}
               <input 
                 type="file" 
@@ -326,7 +345,15 @@ const UploadImage = () => {
                 className="hidden"
               />
             </div>
-            {errors.file && <p className="text-error text-sm mt-2">{errors.file}</p>}
+            
+            {errors.file && (
+              <p className="text-error text-sm mt-2 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {errors.file}
+              </p>
+            )}
 
             <div className="flex justify-between mt-8">
               <button 
@@ -334,6 +361,9 @@ const UploadImage = () => {
                 onClick={() => navigate(-1)}
                 className="btn btn-ghost"
               >
+                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
                 Cancel
               </button>
               <button 
@@ -343,6 +373,9 @@ const UploadImage = () => {
                 disabled={!imageFile}
               >
                 Next
+                <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
               </button>
             </div>
           </motion.div>
@@ -373,6 +406,9 @@ const UploadImage = () => {
                   onClick={() => setStep(1)}
                   className="btn btn-outline btn-sm w-full"
                 >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
                   Change Image
                 </button>
               </div>
@@ -382,71 +418,119 @@ const UploadImage = () => {
                 
                 {/* Title */}
                 <div>
-                  <label htmlFor="title" className="block text-sm font-medium mb-1">
-                    Title <span className="text-error">*</span>
-                  </label>
+                  <div className="flex justify-between mb-1">
+                    <label htmlFor="title" className="block text-sm font-medium">
+                      Title <span className="text-error">*</span>
+                    </label>
+                    <span className={`text-xs ${title.length > 35 ? 'text-warning' : 'text-base-content/50'}`}>
+                      {title.length}/40
+                    </span>
+                  </div>
                   <input
                     type="text"
                     id="title"
+                    ref={titleInputRef}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    onFocus={() => setActiveInput('title')}
+                    onBlur={() => setActiveInput(null)}
                     className={`input input-bordered w-full ${errors.title ? 'input-error' : ''}`}
                     placeholder="Add a title"
                   />
-                  {errors.title && <p className="text-error text-sm mt-1">{errors.title}</p>}
-                  <p className="text-xs text-base-content/50 mt-1">{title.length}/40 characters</p>
+                  
+                  {errors.title && (
+                    <p className="text-error text-sm mt-1">
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label htmlFor="description" className="block text-sm font-medium mb-1">
-                    Description <span className="text-error">*</span>
-                  </label>
+                  <div className="flex justify-between mb-1">
+                    <label htmlFor="description" className="block text-sm font-medium">
+                      Description <span className="text-error">*</span>
+                    </label>
+                    <span className={`text-xs ${description.length > 450 ? 'text-warning' : 'text-base-content/50'}`}>
+                      {description.length}/500
+                    </span>
+                  </div>
                   <textarea
                     id="description"
+                    ref={descriptionInputRef}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    onFocus={() => setActiveInput('description')}
+                    onBlur={() => setActiveInput(null)}
                     className={`textarea textarea-bordered w-full min-h-[120px] ${errors.description ? 'textarea-error' : ''}`}
                     placeholder="Tell everyone what your Pin is about"
                   />
-                  {errors.description && <p className="text-error text-sm mt-1">{errors.description}</p>}
-                  <p className="text-xs text-base-content/50 mt-1">{description.length}/500 characters</p>
+                  
+                  {errors.description && (
+                    <p className="text-error text-sm mt-1">
+                      {errors.description}
+                    </p>
+                  )}
                 </div>
 
                 {/* Tags */}
                 <div>
-                  <label htmlFor="tags" className="block text-sm font-medium mb-1">
-                    Tags <span className="text-error">*</span>
-                  </label>
-                  <div className={`flex flex-wrap gap-2 p-2 border rounded-lg ${errors.tags ? 'border-error' : 'border-base-300'}`}>
-                    {tags.map((tag, index) => (
-                      <div key={index} className="bg-base-200 text-base-content px-3 py-1 rounded-full flex items-center">
-                        <span>{tag}</span>
-                        <button 
-                          type="button" 
-                          onClick={() => removeTag(tag)}
-                          className="ml-2 text-base-content/70 hover:text-error"
+                  <div className="flex justify-between mb-1">
+                    <label htmlFor="tags" className="block text-sm font-medium">
+                      Tags <span className="text-error">*</span>
+                    </label>
+                    <span className={`text-xs text-base-content/50`}>
+                      {tags.length}/5 tags
+                    </span>
+                  </div>
+                  <div className={`flex flex-wrap gap-2 p-3 border rounded-lg input-bordered ${errors.tags ? 'border-error' : ''}`}>
+                    <AnimatePresence>
+                      {tags.map((tag) => (
+                        <motion.div 
+                          key={tag}
+                          className="bg-primary/10 text-primary px-3 py-1 rounded-full flex items-center"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.2 }}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                          <span>#{tag}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => removeTag(tag)}
+                            className="ml-2 text-primary/70 hover:text-error"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                     <input
                       type="text"
+                      ref={tagInputRef}
                       value={tagInput}
                       onChange={handleTagInputChange}
                       onKeyDown={handleTagInputKeyDown}
-                      onBlur={() => tagInput.trim() && addTag()}
+                      onFocus={() => setActiveInput('tags')}
+                      onBlur={() => {
+                        setActiveInput(null);
+                        tagInput.trim() && addTag();
+                      }}
                       className="input input-sm input-ghost flex-grow min-w-[120px]"
                       placeholder={tags.length === 0 ? "Add a tag (press Enter)" : "Add another tag"}
                       disabled={tags.length >= 5}
                     />
                   </div>
-                  {errors.tags && <p className="text-error text-sm mt-1">{errors.tags}</p>}
-                  <p className="text-xs text-base-content/50 mt-1">
-                    Add up to 5 tags to help people find your Pin (3-25 characters each)
+                  
+                  {errors.tags && (
+                    <p className="text-error text-sm mt-1">
+                      {errors.tags}
+                    </p>
+                  )}
+                  <p className="text-xs text-base-content/50 mt-1.5">
+                    Add up to 5 tags (#) to help people discover your Pin
                   </p>
                 </div>
               </div>
@@ -458,8 +542,12 @@ const UploadImage = () => {
                 onClick={handlePrevStep}
                 className="btn btn-ghost"
               >
+                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
                 Back
               </button>
+              
               <button 
                 type="button" 
                 onClick={handleSubmit}
@@ -469,14 +557,36 @@ const UploadImage = () => {
                 {isLoading ? 'Publishing...' : 'Publish Pin'}
               </button>
             </div>
+            
+            {/* Upload Progress Indicator */}
+            <AnimatePresence>
+              {isUploading && (
+                <motion.div
+                  className="mt-4 bg-base-200 rounded-full overflow-hidden shadow-inner"
+                  initial={{ opacity: 0, y: 10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <motion.div 
+                    className="h-2 bg-primary"
+                    style={{ width: progressBarWidth }}
+                  />
+                  <div className="flex justify-between px-2 py-1 text-xs text-base-content/70">
+                    <span>Uploading your Pin...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         );
       
       case 3:
         return (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
             className="w-full flex flex-col items-center"
@@ -494,7 +604,7 @@ const UploadImage = () => {
             </p>
             
             {imagePreview && (
-              <div className="w-48 h-48 rounded-lg overflow-hidden shadow-md mb-8">
+              <div className="w-64 h-64 rounded-lg overflow-hidden shadow-md mb-8">
                 <img 
                   src={imagePreview} 
                   alt="Uploaded Pin" 
@@ -520,13 +630,20 @@ const UploadImage = () => {
                 }}
                 className="btn btn-outline"
               >
+                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
                 Create Another Pin
               </button>
+              
               <button 
                 type="button" 
                 onClick={() => navigate('/profile')}
                 className="btn btn-primary"
               >
+                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
                 Go to Profile
               </button>
             </div>
@@ -539,32 +656,93 @@ const UploadImage = () => {
   };
 
   return (
-    <div className="container mx-auto max-w-3xl py-8 px-4">
-      <div className="bg-base-100 shadow-lg rounded-lg overflow-hidden">
-        <div className="p-6 md:p-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">Create New Pin</h1>
-          
-          <StepIndicator />
-          
-          <AnimatePresence mode="wait">
-            {renderStepContent()}
-          </AnimatePresence>
-        </div>
-      </div>
-      
-      {step !== 3 && (
-        <div className="mt-8 p-6 bg-base-200 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Upload Guidelines</h2>
-          <ul className="space-y-2 list-disc pl-5 text-base-content/80">
-            <li>Only upload images you have the right to share</li>
-            <li>Images must be in JPG or PNG format</li>
-            <li>Maximum file size is 5MB</li>
-            <li>Pins must be appropriate for all audiences</li>
-            <li>All pins are reviewed before they appear on the site</li>
-          </ul>
-        </div>
-      )}
-    </div>
+    <motion.div 
+      className="min-h-screen bg-base-100 py-10 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div 
+        className="container mx-auto max-w-3xl"
+        initial={{ y: 30 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+      >
+        <motion.div 
+          className="bg-base-100 shadow-lg rounded-xl overflow-hidden border border-base-300/50"
+          transition={{ duration: 0.3 }}
+        >
+          <div className="p-6 md:p-8">
+            <motion.h1 
+              className="text-2xl font-bold mb-6 text-center"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+            >
+              Create New Pin
+            </motion.h1>
+            
+            <StepIndicator />
+            
+            {error && (
+              <motion.div 
+                className="alert alert-error mb-6"
+                initial={{ opacity: 0, y: -10, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <svg className="w-6 h-6 stroke-current shrink-0" fill="none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{error}</span>
+                <button 
+                  className="btn btn-sm btn-circle btn-ghost"
+                  onClick={() => setError(null)}
+                >×</button>
+              </motion.div>
+            )}
+            
+            <motion.div 
+              className="relative"
+              animate={controls}
+            >
+              <AnimatePresence mode="wait">
+                {renderStepContent()}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        </motion.div>
+        
+        {step !== 3 && (
+          <motion.div 
+            className="mt-6 p-5 bg-base-200 rounded-lg shadow-sm border border-base-300/50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.3 }}
+          >
+            <motion.h2 
+              className="text-lg font-semibold mb-3 flex items-center"
+              initial={{ x: -5 }}
+              animate={{ x: 0 }}
+              transition={{ delay: 0.4, duration: 0.2 }}
+            >
+              <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Upload Guidelines
+            </motion.h2>
+            <ul className="space-y-2 pl-5 text-base-content/80 list-disc">
+              <li>Only upload images you have the right to share</li>
+              <li>Images must be in JPG or PNG format</li>
+              <li>Maximum file size is 5MB</li>
+              <li>Pins must be appropriate for all audiences</li>
+              <li>All pins are reviewed before they appear on the site</li>
+            </ul>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 };
 

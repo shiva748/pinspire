@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 
 const PinspireGallery = () => {
   const [images, setImages] = useState([]);
@@ -19,6 +19,7 @@ const PinspireGallery = () => {
   const [isLiked, setIsLiked] = useState(false);
   
   const user = useSelector(state => state.user);
+  const galleryRef = useRef(null);
 
   // Fetch images from backend
   const fetchImages = async (page = 1, tag = "All") => {
@@ -233,7 +234,7 @@ const PinspireGallery = () => {
     visible: { 
       opacity: 1,
       transition: { 
-        staggerChildren: 0.1
+        staggerChildren: 0.08
       }
     }
   };
@@ -246,7 +247,7 @@ const PinspireGallery = () => {
       transition: { 
         type: "spring", 
         stiffness: 100, 
-        damping: 12 
+        damping: 15 
       }
     }
   };
@@ -271,11 +272,34 @@ const PinspireGallery = () => {
     }
   };
 
+  // Custom hook for masonry layout
+  const getColumnCount = () => {
+    if (typeof window === 'undefined') return 3;
+    if (window.innerWidth < 640) return 1;
+    if (window.innerWidth < 768) return 2;
+    if (window.innerWidth < 1024) return 3;
+    return 4;
+  };
+
+  const createMasonryLayout = (items) => {
+    const columnCount = getColumnCount();
+    const columns = Array.from({ length: columnCount }, () => []);
+    
+    items.forEach((item, index) => {
+      const columnIndex = index % columnCount;
+      columns[columnIndex].push(item);
+    });
+    
+    return columns;
+  };
+
+  const masonryColumns = createMasonryLayout(displayedImages);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-base-100 to-base-200 py-12">
       <div className="container mx-auto px-4">
         <motion.h1 
-          className="text-4xl font-bold mb-2 text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
+          className="text-5xl font-bold mb-3 text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
@@ -294,7 +318,7 @@ const PinspireGallery = () => {
 
         {/* Search & Filter Section */}
         <motion.div 
-          className="bg-base-100 rounded-2xl p-5 mb-12 shadow-lg border border-base-300"
+          className="bg-base-100/80 backdrop-blur-sm rounded-2xl p-5 mb-12 shadow-lg border border-base-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.5 }}
@@ -302,16 +326,16 @@ const PinspireGallery = () => {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <input
-                  type="text"
+        <input
+          type="text"
                   placeholder="Search pins..."
-                  className="input input-bordered w-full pr-16 rounded-full shadow-sm focus:shadow-md transition-shadow duration-300"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  className="input input-bordered w-full pr-16 rounded-full shadow-sm focus:shadow-md transition-all duration-300 focus:border-primary"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && searchImages()}
                 />
                 <button
-                  className="btn btn-primary absolute right-0 top-0 rounded-l-none rounded-r-full"
+                  className="btn btn-primary absolute right-0 top-0 rounded-l-none rounded-r-full hover:scale-105 transition-transform"
                   onClick={searchImages}
                   disabled={!search.trim()}
                 >
@@ -333,7 +357,7 @@ const PinspireGallery = () => {
               </motion.button>
             ) : (
               <div className="relative">
-                <select
+        <select
                   value={selectedTag}
                   onChange={(e) => handleTagSelect(e.target.value)}
                   className="select select-bordered rounded-full pl-5 pr-10 appearance-none bg-base-100"
@@ -341,9 +365,9 @@ const PinspireGallery = () => {
                   {availableTags.map((tag) => (
                     <option key={tag} value={tag}>
                       {tag}
-                    </option>
-                  ))}
-                </select>
+            </option>
+          ))}
+        </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-base-content/50">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -400,72 +424,104 @@ const PinspireGallery = () => {
           </motion.div>
         )}
 
-        {/* Image Gallery */}
+        {/* Image Gallery - Masonry Layout */}
         {!isLoading && displayedImages.length > 0 && (
           <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+            ref={galleryRef}
+            className="flex gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {displayedImages.map((img, index) => (
-              <motion.div 
-                key={img._id} 
-                className="flex flex-col"
-                variants={itemVariants}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              >
-                <div 
-                  className="bg-base-100 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
-                >
-                  <div 
-                    className="relative cursor-pointer overflow-hidden group"
-                    onClick={() => openImageModal(img)}
+            {masonryColumns.map((column, columnIndex) => (
+              <div key={columnIndex} className="flex-1 space-y-6">
+                {column.map((img) => (
+                  <motion.div 
+                    key={img._id} 
+                    variants={itemVariants}
+                    whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.3 } }}
+                    className="overflow-hidden group"
                   >
-                    <motion.img
-                      src={`/api/images/${img.imageUrl}`}
-                      alt={img.title}
-                      className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700"
-                      loading="lazy"
-                      layoutId={`image-${img._id}`}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                      <h3 className="text-white font-medium truncate opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                        {img.title}
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-medium truncate">{img.title}</h3>
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-base-300 overflow-hidden shadow-sm">
-                          {img.user?.profileImg ? (
-                            <img 
-                              src={`/public/${img.user.profileImg}`} 
-                              alt={img.user.username} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-xs font-bold">
-                              {img.user?.username?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                          )}
+                    <div 
+                      className="bg-base-100 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1"
+                      style={{ transformOrigin: "center bottom" }}
+                    >
+                      <div 
+                        className="relative cursor-pointer overflow-hidden"
+                        onClick={() => openImageModal(img)}
+                      >
+                        <div className="relative pb-0">
+                          <motion.img
+                            src={`/api/images/${img.imageUrl}`}
+                            alt={img.title}
+                            className="w-full h-auto object-cover transition-all duration-700 group-hover:scale-105 group-hover:brightness-[1.02]"
+                            loading="lazy"
+                            layoutId={`image-${img._id}`}
+                            style={{ 
+                              borderTopLeftRadius: "0.75rem", 
+                              borderTopRightRadius: "0.75rem"
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4 backdrop-blur-[2px] group-hover:backdrop-blur-[1px]">
+                            <motion.h3 
+                              initial={{ y: 20, opacity: 0 }}
+                              whileHover={{ y: 0, opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className="text-white font-semibold text-lg truncate drop-shadow-md"
+                            >
+                              {img.title}
+                            </motion.h3>
+                            <motion.div 
+                              className="flex mt-2 gap-2 flex-wrap"
+                              initial={{ y: 20, opacity: 0 }}
+                              whileHover={{ y: 0, opacity: 1 }}
+                              transition={{ duration: 0.3, delay: 0.1 }}
+                            >
+                              {img.tags && img.tags.slice(0, 3).map((tag, i) => (
+                                <span key={i} className="bg-white/20 backdrop-blur-sm text-white text-xs rounded-full px-2 py-1 hover:bg-white/30 transition-colors shadow-sm">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </motion.div>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium truncate max-w-[100px]">
-                          {img.user?.username || 'User'}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-1 text-base-content/70">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                        <span className="text-sm font-medium">{img.likeCount || 0}</span>
+                      <div className="p-4 bg-gradient-to-b from-base-100 to-base-200/30">
+                        <h3 className="font-medium truncate text-lg group-hover:text-primary transition-colors">{img.title}</h3>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-2 transition-transform duration-300 group-hover:translate-x-1">
+                            <div className="w-9 h-9 rounded-full bg-base-300 overflow-hidden shadow-sm ring-2 ring-base-200 ring-offset-1">
+                              {img.user?.profileImg ? (
+                                <img 
+                                  src={`/public/${img.user.profileImg}`} 
+                                  alt={img.user.username} 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-xs font-bold">
+                                  {img.user?.username?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-sm font-medium truncate max-w-[100px] opacity-70 group-hover:opacity-100">
+                              {img.user?.username || 'User'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-base-content/70 group-hover:text-primary/70 transition-colors">
+                            <svg className={`w-5 h-5 ${img.likes && img.likes.some(like => user.logged && like.user === user.data._id) ? 'text-red-500 fill-red-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            <span className="text-sm font-medium">{img.likeCount || 0}</span>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Subtle divider */}
+                      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-base-300/50 to-transparent opacity-50"></div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
+                  </motion.div>
+                ))}
+              </div>
             ))}
           </motion.div>
         )}
@@ -479,7 +535,7 @@ const PinspireGallery = () => {
             transition={{ delay: 0.5 }}
           >
             <motion.button
-              className="btn btn-circle btn-outline"
+              className="btn btn-circle btn-outline hover:scale-110 transition-transform"
               onClick={loadPreviousPage}
               disabled={currentPage === 1}
               whileHover={{ scale: 1.1 }}
@@ -497,7 +553,7 @@ const PinspireGallery = () => {
             </div>
             
             <motion.button
-              className="btn btn-circle btn-outline"
+              className="btn btn-circle btn-outline hover:scale-110 transition-transform"
               onClick={loadNextPage}
               disabled={currentPage === totalPages}
               whileHover={{ scale: 1.1 }}
@@ -521,7 +577,7 @@ const PinspireGallery = () => {
               onClick={closeImageModal}
             >
               <motion.div 
-                className="bg-base-100 rounded-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col md:flex-row"
+                className="bg-base-100 rounded-2xl overflow-hidden max-w-5xl w-full max-h-[90vh] shadow-2xl flex flex-col md:flex-row"
                 onClick={(e) => e.stopPropagation()}
                 variants={modalVariants}
                 initial="hidden"
@@ -529,7 +585,7 @@ const PinspireGallery = () => {
                 exit="exit"
               >
                 {/* Image Section */}
-                <div className="md:w-1/2 bg-base-300/50 flex items-center justify-center p-4">
+                <div className="md:w-3/5 bg-base-300/30 flex items-center justify-center p-4">
                   <motion.img 
                     layoutId={`image-${selectedImage._id}`}
                     src={`/api/images/${selectedImage.imageUrl}`}
@@ -539,9 +595,16 @@ const PinspireGallery = () => {
                 </div>
                 
                 {/* Details Section */}
-                <div className="md:w-1/2 p-6 flex flex-col max-h-[90vh] overflow-y-auto">
+                <div className="md:w-2/5 p-6 flex flex-col max-h-[90vh] overflow-y-auto">
                   <div className="flex justify-between items-start mb-6">
-                    <h2 className="text-2xl font-bold">{selectedImage.title}</h2>
+                    <motion.h2 
+                      className="text-2xl font-bold"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      {selectedImage.title}
+                    </motion.h2>
                     <motion.button 
                       className="btn btn-circle btn-sm btn-ghost"
                       onClick={closeImageModal}
@@ -552,10 +615,15 @@ const PinspireGallery = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </motion.button>
-                  </div>
+          </div>
                   
                   {/* User Info */}
-                  <div className="flex items-center gap-3 mb-6">
+                  <motion.div 
+                    className="flex items-center gap-3 mb-6"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
                     <div className="w-12 h-12 rounded-full bg-base-300 overflow-hidden ring-2 ring-primary/20">
                       {selectedImage.user?.profileImg ? (
                         <img 
@@ -566,8 +634,8 @@ const PinspireGallery = () => {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-lg font-bold">
                           {selectedImage.user?.username?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                      )}
+          </div>
+        )}
                     </div>
                     <div>
                       <div className="font-medium text-lg">{selectedImage.user?.username || 'User'}</div>
@@ -575,72 +643,82 @@ const PinspireGallery = () => {
                         {selectedImage.createdAt && formatDate(selectedImage.createdAt)}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                   
                   {/* Description */}
-                  <div className="mb-6">
+                  <motion.div 
+                    className="mb-6"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
                     <h3 className="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-2">Description</h3>
                     <p className="text-base-content whitespace-pre-wrap bg-base-200/50 p-4 rounded-lg">
                       {selectedImage.description || "No description provided."}
                     </p>
-                  </div>
+                  </motion.div>
                   
                   {/* Tags */}
                   {selectedImage.tags && selectedImage.tags.length > 0 && (
-                    <div className="mb-6">
+                    <motion.div 
+                      className="mb-6"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
                       <h3 className="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-2">Tags</h3>
                       <div className="flex flex-wrap gap-2">
                         {selectedImage.tags.map((tag, index) => (
                           <motion.span 
                             key={index}
-                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm cursor-pointer"
+                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm cursor-pointer hover:bg-primary/20 transition-colors"
                             onClick={() => {
                               closeImageModal();
                               handleTagSelect(tag);
                             }}
-                            whileHover={{ scale: 1.05, backgroundColor: "rgba(var(--p), 0.2)" }}
+                            whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                           >
                             #{tag}
                           </motion.span>
                         ))}
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                   
                   {/* Actions */}
-                  <div className="mt-auto pt-4 border-t border-base-200 flex items-center justify-between">
+                  <motion.div 
+                    className="mt-auto pt-4 border-t border-base-200 flex items-center justify-between"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                  >
                     <div className="flex items-center gap-3">
                       <motion.button 
                         className={`btn btn-circle ${isLiked ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'btn-ghost'}`}
                         onClick={handleLikeToggle}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        animate={{ 
-                          scale: isLiked ? [1, 1.2, 1] : 1,
-                          transition: { duration: 0.3 }
-                        }}
                       >
-                        <svg className="w-6 h-6" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-6 h-6 ${isLiked ? 'fill-red-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                       </motion.button>
-                      <span className="font-medium">{selectedImage.likeCount || 0} likes</span>
                     </div>
                     
-                    {user.logged && selectedImage.user && user.data._id === selectedImage.user._id && (
-                      <motion.button 
-                        className="btn btn-error btn-sm"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                    {selectedImage.tags && selectedImage.tags.length > 0 && (
+                      <button 
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => {
+                          closeImageModal();
+                          setSearch('');
+                          handleTagSelect(selectedImage.tags[0]);
+                        }}
                       >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
-                      </motion.button>
+                        View similar pins
+                      </button>
                     )}
-                  </div>
+                  </motion.div>
                 </div>
               </motion.div>
             </motion.div>
