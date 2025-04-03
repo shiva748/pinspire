@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { setUser } from "../redux/reducers/userSlice";
 
 const Profile = () => {
   const user = useSelector((state) => state.user);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [userImages, setUserImages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteImageId, setDeleteImageId] = useState(null);
@@ -21,10 +23,26 @@ const Profile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Redirect to login if not logged in
+  useEffect(() => {
+    if (!user.logged) {
+      // If viewing this component directly and not logged in, redirect to home
+      navigate('/');
+    }
+  }, [user.logged, navigate]);
+
   useEffect(() => {
     const fetchUserImages = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
+        if (!user.data?._id) {
+          setError("User ID not found");
+          setIsLoading(false);
+          return;
+        }
+        
         const response = await fetch(`/api/user/profile/${user.data._id}`, {
           method: "GET",
           headers: {
@@ -39,9 +57,11 @@ const Profile = () => {
           setUserImages(data.data.images || []);
         } else {
           console.error("Failed to fetch user images:", data.message);
+          setError(data.message || "Failed to load profile data");
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
+        setError("An error occurred while loading your profile");
       } finally {
         setIsLoading(false);
       }
@@ -49,6 +69,9 @@ const Profile = () => {
 
     if (user.logged && user.data?._id) {
       fetchUserImages();
+    } else {
+      // If user is not logged in, set loading to false
+      setIsLoading(false);
     }
   }, [user.logged, user.data?._id]);
 
@@ -211,6 +234,53 @@ const Profile = () => {
         <div className="text-center">
           <span className="loading loading-spinner loading-lg text-primary"></span>
           <p className="mt-4 text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center max-w-md mx-auto p-6 bg-base-100 rounded-lg shadow-lg">
+          <svg className="w-16 h-16 mx-auto text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-xl font-bold mt-4">Error Loading Profile</h3>
+          <p className="mt-2 text-gray-600">{error}</p>
+          <div className="mt-6 flex justify-center space-x-4">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn btn-primary"
+            >
+              Try Again
+            </button>
+            <Link to="/" className="btn btn-outline">
+              Go Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user.logged) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center max-w-md mx-auto p-6 bg-base-100 rounded-lg shadow-lg">
+          <svg className="w-16 h-16 mx-auto text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-4V7a3 3 0 00-3-3H9m1.5-1h-2a3 3 0 00-3 3v7m8-10h-4" />
+          </svg>
+          <h3 className="text-xl font-bold mt-4">Login Required</h3>
+          <p className="mt-2 text-gray-600">Please log in to view your profile</p>
+          <div className="mt-6">
+            <button 
+              onClick={() => document.getElementById("auth_modal").showModal()} 
+              className="btn btn-primary"
+            >
+              Log In
+            </button>
+          </div>
         </div>
       </div>
     );

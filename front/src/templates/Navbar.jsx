@@ -135,16 +135,10 @@ const Navbar = () => {
               ) : (
                 <div className="flex gap-2">
                   <button
-                    className="px-4 py-2 hover:bg-base-200 text-base-content rounded-lg font-medium transition-colors"
-                    onClick={() => document.getElementById("auth_modal").showModal()}
-                  >
-                    Log in
-                  </button>
-                  <button
                     className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-content rounded-lg font-medium transition-colors"
                     onClick={() => document.getElementById("auth_modal").showModal()}
                   >
-                    Sign up
+                    Log in
                   </button>
                 </div>
               )}
