@@ -7,8 +7,20 @@ const userSlice = createSlice({
     setUser: (state, action) => {
       Object.assign(state, action.payload);
     },
+    updateProfile: (state, action) => {
+      if (state.logged && state.data) {
+        state.data = {
+          ...state.data,
+          ...action.payload
+        };
+      }
+    },
+    logoutUser: (state) => {
+      state.logged = false;
+      state.data = {};
+    }
   },
 });
 
-export const { setUser } = userSlice.actions;
+export const { setUser, updateProfile, logoutUser } = userSlice.actions;
 export default userSlice.reducer;

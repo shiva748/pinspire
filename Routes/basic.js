@@ -4,6 +4,8 @@ const {
   follow,
   unfollow,
   getprofile,
+  updateProfile,
+  uploadProfilePicture,
 } = require("../controller/basicontroller");
 const verify = require("../middleware/authenticate");
 
@@ -18,6 +20,14 @@ Router.post("/user/unfollow", verify, unfollow);
 // === === === get user profile === === === //
 
 Router.get("/user/profile/:user_id", verify, getprofile);
+
+// === === === update user profile === === === //
+
+Router.post("/user/profile/update", verify, updateProfile);
+
+// === === === upload profile picture === === === //
+
+Router.post("/user/profile/picture", verify, uploadProfilePicture);
 
 // === === === final exports === === === //
 

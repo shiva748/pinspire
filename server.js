@@ -9,6 +9,7 @@ const auth = require("./Routes/authentication");
 const image = require("./Routes/image");
 const admin = require("./Routes/admin");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 // === === === initialization === === === //
 
 const app = express();
@@ -23,11 +24,12 @@ app.use(cookieParser());
 
 // === === === serving files === === === //
 
-app.use("/api/images", express.static("./public"));
+// Serve all static files from public directory
+app.use("/api/images", express.static(path.join(__dirname, "public")));
 
 // === === === use of routes === === === //
 
-app.use("/", basic);
+app.use("/api", basic);
 
 app.use("/api/auth", auth);
 

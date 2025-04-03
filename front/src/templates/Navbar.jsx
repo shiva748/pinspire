@@ -44,7 +44,7 @@ const Navbar = () => {
             <Link to="/" className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 0a12 12 0 0 0-4.373 23.178c-.035-.947-.003-2.086.236-3.113.263-1.023 1.696-6.455 1.696-6.455s-.426-.867-.426-2.115c0-1.984 1.15-3.463 2.583-3.463 1.22 0 1.81.915 1.81 2.013 0 1.223-.777 3.055-1.182 4.751-.337 1.42.714 2.584 2.121 2.584 2.541 0 4.25-3.264 4.25-7.127 0-2.938-1.979-5.136-5.582-5.136-4.07 0-6.604 3.036-6.604 6.426 0 1.17.345 1.993.897 2.63.252.299.29.417.197.76-.066.252-.217.86-.279 1.102-.09.346-.366.47-.673.342-1.878-.766-2.756-2.831-2.756-5.15 0-3.827 3.228-8.416 9.627-8.416 5.145 0 8.527 3.724 8.527 7.72 0 5.283-2.937 9.232-7.268 9.232-1.455 0-2.823-.788-3.29-1.682l-.895 3.55c-.323 1.172-.957 2.346-1.536 3.27.866.257 1.776.395 2.717.395a12 12 0 0 0 12-12A12 12 0 0 0 12 0z" />
+                  <path d="M12 0a12 12 0 0 0-4.373 23.178c-.035-.947-.003-2.086.236-3.113.263-1.023 1.696-6.455 1.696-6.455s-.426-.867-.426-2.115c0-1.984 1.15-3.463 2.583-3.463 1.22 0 1.81.915 1.81 2.013 0 1.223-.777 3.055-1.182 4.751-.337 1.42.714 2.584 2.121 2.584 2.541 0 4.25-3.264 4.25-7.127 0-2.938-1.979-5.136-5.582-5.136-4.07 0-6.604 3.036-6.604 6.426 0 1.17.345 1.993.897 2.63.252.299.29.417.197.76-.066.252-.217.86-.279 1.102-.09.346-.366.47-.673.342-1.878-.766-2.756-2.831-2.831-5.15 0-3.827 3.228-8.416 9.627-8.416 5.145 0 8.527 3.724 8.527 7.72 0 5.283-2.937 9.232-7.268 9.232-1.455 0-2.823-.788-3.29-1.682l-.895 3.55c-.323 1.172-.957 2.346-1.536 3.27.866.257 1.776.395 2.717.395a12 12 0 0 0 12-12A12 12 0 0 0 12 0z" />
                 </svg>
               </div>
               <span className="text-xl font-bold hidden md:block text-base-content">Pinspire</span>
@@ -72,11 +72,17 @@ const Navbar = () => {
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-base-200">
-                      <img
-                        alt="User profile"
-                        src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
-                        className="w-full h-full object-cover"
-                      />
+                      {user.data.profilePicture ? (
+                        <img
+                          alt="User profile"
+                          src={`/api/images/${user.data.profilePicture}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-sm font-bold">
+                          {user.data.username?.charAt(0).toUpperCase() || "?"}
+                        </div>
+                      )}
                     </div>
                     <span className="hidden md:flex items-center text-base-content font-medium">
                       {user.data.username || "Account"}
@@ -170,11 +176,21 @@ const Navbar = () => {
           </NavLink>
           <NavLink to="/profile" active={isActive("/profile")} isMobile>
             <div className="w-6 h-6 rounded-full overflow-hidden">
-              <img
-                alt="User profile"
-                src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
-                className="w-full h-full object-cover"
-              />
+              {user.logged && user.data?.profilePicture ? (
+                <img
+                  alt="User profile"
+                  src={`/api/images/${user.data.profilePicture}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E`;
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-xs font-bold">
+                  {user.logged ? (user.data?.username?.charAt(0).toUpperCase() || "?") : "?"}
+                </div>
+              )}
             </div>
             <span className="text-xs mt-1">Profile</span>
           </NavLink>
