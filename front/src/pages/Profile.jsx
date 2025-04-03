@@ -9,7 +9,9 @@ const Profile = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [userImages, setUserImages] = useState([]);
+  const [likedImages, setLikedImages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavedLoading, setIsSavedLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,6 +24,8 @@ const Profile = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [likeActionImageId, setLikeActionImageId] = useState(null);
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -74,6 +78,34 @@ const Profile = () => {
       setIsLoading(false);
     }
   }, [user.logged, user.data?._id]);
+
+  useEffect(() => {
+    if (activeTab === "saved" && user) {
+      fetchLikedImages();
+    }
+  }, [activeTab, user]);
+
+  const fetchLikedImages = async () => {
+    try {
+      setIsSavedLoading(true);
+      const response = await fetch("/api/image/liked", {
+        method: "GET",
+        credentials: "include",
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setLikedImages(data.likedImages || []);
+      } else {
+        console.error("Failed to fetch liked images:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching liked images:", error);
+    } finally {
+      setIsSavedLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -225,6 +257,42 @@ const Profile = () => {
   const confirmDeleteImage = (imageId) => {
     if (window.confirm("Are you sure you want to delete this image? This action cannot be undone.")) {
       handleDeleteImage(imageId);
+    }
+  };
+
+  const unlikeImage = async (imageId) => {
+    try {
+      setIsLikeLoading(true);
+      setLikeActionImageId(imageId);
+      
+      const response = await fetch("/api/image/unlike", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ image_id: imageId }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.result) {
+        // Remove the image from liked images
+        setLikedImages(prev => prev.filter(img => img._id !== imageId));
+      } else {
+        console.error("Failed to unlike image:", data.message);
+      }
+    } catch (error) {
+      console.error("Error unliking image:", error);
+    } finally {
+      setIsLikeLoading(false);
+      setLikeActionImageId(null);
+    }
+  };
+
+  const handleUnlikeImage = (imageId) => {
+    if (window.confirm("Remove this image from your likes?")) {
+      unlikeImage(imageId);
     }
   };
 
@@ -556,13 +624,79 @@ const Profile = () => {
             )}
             
             {activeTab === 'saved' && (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
-                <h3 className="mt-4 text-xl font-semibold text-gray-700">No saved pins yet</h3>
-                <p className="mt-2 text-gray-500">Save pins that inspire you!</p>
-                <Link to="/explore" className="mt-4 btn btn-primary">Explore Pins</Link>
+              <div>
+                {isSavedLoading ? (
+                  <div className="text-center py-12">
+                    <span className="loading loading-spinner loading-lg text-primary"></span>
+                    <p className="mt-4 text-gray-600">Loading saved pins...</p>
+                  </div>
+                ) : likedImages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    <h3 className="mt-4 text-xl font-semibold text-gray-700">No saved pins yet</h3>
+                    <p className="mt-2 text-gray-500">Save pins that inspire you!</p>
+                    <Link to="/" className="mt-4 btn btn-primary">Explore Pins</Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {likedImages.map((image, index) => (
+                      <motion.div 
+                        key={image._id || index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-base-200"
+                      >
+                        <img 
+                          src={`/api/images/${image.imageUrl}`} 
+                          alt={image.title || "Image"} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'/%3E%3C/svg%3E`;
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                          <h3 className="text-white font-medium truncate">{image.title}</h3>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-white/80 text-sm">{image.likeCount || 0} likes</span>
+                            <div className="flex space-x-2">
+                              <button 
+                                className="btn btn-circle btn-sm btn-ghost text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`/api/images/${image.imageUrl}`, '_blank');
+                                }}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                              </button>
+                              <button 
+                                className="btn btn-circle btn-sm btn-ghost text-white hover:bg-red-500/70"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnlikeImage(image._id);
+                                }}
+                                disabled={isLikeLoading && likeActionImageId === image._id}
+                              >
+                                {isLikeLoading && likeActionImageId === image._id ? (
+                                  <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

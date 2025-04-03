@@ -5,6 +5,7 @@ const uniqid = require("uniqid");
 const { handleError } = require("../snippets/error");
 const { fileupload } = require("../snippets/validation");
 const image = require("../database/Schema/image");
+const mongoose = require('mongoose');
 
 exports.upload = async (req, res) => {
   try {
@@ -196,6 +197,55 @@ exports.unlike_image = async (req, res) => {
     res
       .status(error.status || 500)
       .json({ result: false, message: error.message });
+  }
+};
+
+// === === === get liked images === === === //
+
+exports.get_liked_images = async (req, res) => {
+  try {
+    const user = req.user;
+    const userId = mongoose.Types.ObjectId.isValid(user._id) 
+      ? new mongoose.Types.ObjectId(user._id) 
+      : user._id;
+    
+    console.log('Fetching liked images for user:', userId);
+    
+    // Find all approved images that the user has liked
+    const likedImages = await image.find({
+      approved: true,
+      'likes.user': userId
+    })
+    .populate('user', 'username profilePicture')
+    .sort({ createdAt: -1 });
+    
+    console.log('Found liked images count:', likedImages.length);
+    
+    // Make sure we're returning a properly formatted response
+    const formattedImages = likedImages.map(img => {
+      // Convert Mongoose document to plain object
+      const plainImg = img.toObject ? img.toObject() : img;
+      
+      return {
+        ...plainImg,
+        // Ensure user field has consistent format
+        user: {
+          _id: plainImg.user._id || plainImg.user,
+          username: plainImg.user.username || 'Unknown',
+          profileImg: plainImg.user.profilePicture || null
+        }
+      };
+    });
+    
+    return res.status(200).json({
+      result: true,
+      likedImages: formattedImages
+    });
+  } catch (error) {
+    console.error('Error getting liked images:', error);
+    res
+      .status(error.status || 500)
+      .json({ result: false, message: error.message || 'Failed to fetch liked images' });
   }
 };
 
