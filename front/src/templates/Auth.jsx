@@ -96,7 +96,7 @@ const AuthModal = () => {
         if (res.ok) {
           console.log("Login successful:", data);
           document.getElementById("auth_modal").close();
-          dispatch(setUser({ logged: true, data: res.data }));
+          dispatch(setUser({ logged: true, data: data.data }));
         } else {
           console.error("Login failed:", data.message);
         }

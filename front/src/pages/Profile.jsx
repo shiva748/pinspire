@@ -10,6 +10,8 @@ const Profile = () => {
   const [userImages, setUserImages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteImageId, setDeleteImageId] = useState(null);
   const [profileData, setProfileData] = useState({
     bio: user.data?.bio || "",
     website: user.data?.website || "",
@@ -161,6 +163,45 @@ const Profile = () => {
       console.error("Error uploading profile picture:", error);
       alert("Failed to upload profile picture: " + error.message);
       setIsUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId) => {
+    if (isDeleting) return;
+
+    setDeleteImageId(imageId);
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/image/${imageId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.result) {
+        // Remove the deleted image from the state
+        setUserImages(prevImages => prevImages.filter(img => img._id !== imageId));
+        alert("Image deleted successfully");
+      } else {
+        alert("Failed to delete image: " + (data.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      alert("Error deleting image: " + error.message);
+    } finally {
+      setIsDeleting(false);
+      setDeleteImageId(null);
+    }
+  };
+
+  const confirmDeleteImage = (imageId) => {
+    if (window.confirm("Are you sure you want to delete this image? This action cannot be undone.")) {
+      handleDeleteImage(imageId);
     }
   };
 
@@ -389,6 +430,14 @@ const Profile = () => {
                         transition={{ duration: 0.3, delay: index * 0.05 }}
                         className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-base-200"
                       >
+                        {deleteImageId === image._id && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                            <div className="text-center text-white">
+                              <span className="loading loading-spinner loading-md"></span>
+                              <p className="mt-2 text-sm">Deleting...</p>
+                            </div>
+                          </div>
+                        )}
                         <img 
                           src={`/api/images/${image.imageUrl}`} 
                           alt={image.title || "Image"} 
@@ -403,14 +452,27 @@ const Profile = () => {
                           <div className="flex justify-between items-center mt-2">
                             <span className="text-white/80 text-sm">{image.likeCount || 0} likes</span>
                             <div className="flex space-x-2">
-                              <button className="btn btn-circle btn-sm btn-ghost text-white">
+                              <button 
+                                className="btn btn-circle btn-sm btn-ghost text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`/api/images/${image.imageUrl}`, '_blank');
+                                }}
+                              >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
                               </button>
-                              <button className="btn btn-circle btn-sm btn-ghost text-white">
+                              <button 
+                                className="btn btn-circle btn-sm btn-ghost text-white hover:bg-red-500/70"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmDeleteImage(image._id);
+                                }}
+                                disabled={isDeleting}
+                              >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                               </button>
                             </div>

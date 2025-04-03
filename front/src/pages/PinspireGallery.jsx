@@ -17,6 +17,8 @@ const PinspireGallery = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteImageId, setDeleteImageId] = useState(null);
   
   const user = useSelector(state => state.user);
   const galleryRef = useRef(null);
@@ -212,6 +214,62 @@ const PinspireGallery = () => {
       console.error("Error updating like status:", error);
       setError("An error occurred while updating like status");
     }
+  };
+
+  // Handle delete image
+  const handleDeleteImage = async (imageId) => {
+    if (isDeleting) return;
+    
+    setDeleteImageId(imageId);
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch(`/api/image/${imageId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.result) {
+        // Remove the deleted image from the state
+        if (searchMode) {
+          setSearchResults(prevImages => prevImages.filter(img => img._id !== imageId));
+        } else {
+          setImages(prevImages => prevImages.filter(img => img._id !== imageId));
+        }
+        
+        // Close the modal if the deleted image was selected
+        if (selectedImage && selectedImage._id === imageId) {
+          closeImageModal();
+        }
+        
+        alert("Image deleted successfully");
+      } else {
+        alert("Failed to delete image: " + (data.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      alert("Error deleting image: " + error.message);
+    } finally {
+      setIsDeleting(false);
+      setDeleteImageId(null);
+    }
+  };
+  
+  const confirmDeleteImage = (imageId, e) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this image? This action cannot be undone.")) {
+      handleDeleteImage(imageId);
+    }
+  };
+  
+  // Check if the current user is the owner of the image
+  const isImageOwner = (image) => {
+    return user.logged && image.user && image.user === user.data._id;
   };
 
   // Initial fetch
@@ -513,6 +571,23 @@ const PinspireGallery = () => {
                             </svg>
                             <span className="text-sm font-medium">{img.likeCount || 0}</span>
                           </div>
+                          
+                          {/* Delete Button - Only visible for image owner */}
+                          {isImageOwner(img) && (
+                            <button 
+                              className="absolute top-2 right-2 btn btn-circle btn-sm btn-error opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md"
+                              onClick={(e) => confirmDeleteImage(img._id, e)}
+                              disabled={isDeleting && deleteImageId === img._id}
+                            >
+                              {isDeleting && deleteImageId === img._id ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                       
@@ -704,6 +779,28 @@ const PinspireGallery = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                       </motion.button>
+                      
+                      {/* Delete Button - Only visible for image owner */}
+                      {selectedImage && isImageOwner(selectedImage) && (
+                        <motion.button 
+                          className="btn btn-circle btn-error btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmDeleteImage(selectedImage._id, e);
+                          }}
+                          disabled={isDeleting}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          {isDeleting && deleteImageId === selectedImage._id ? (
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </motion.button>
+                      )}
                     </div>
                     
                     {selectedImage.tags && selectedImage.tags.length > 0 && (

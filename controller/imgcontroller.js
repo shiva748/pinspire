@@ -195,7 +195,7 @@ exports.unlike_image = async (req, res) => {
   } catch (error) {
     res
       .status(error.status || 500)
-      .json({ result: false, messgae: error.message });
+      .json({ result: false, message: error.message });
   }
 };
 
@@ -203,22 +203,48 @@ exports.unlike_image = async (req, res) => {
 
 exports.delete_image = async (req, res) => {
   try {
-    let user = req.user;
-    let { image_id } = req.body;
+    const { id } = req.params;
+    const user = req.user;
+    
+    if (!id) {
+      return handleError("Image ID is required", 400);
+    }
+    
+    // Find the image
+    const img = await image.findById(id);
+    
+    if (!img) {
+      return handleError("Image not found", 404);
+    }
+    
+    // Check if the user is the owner of the image
+    if (img.user.toString() !== user._id.toString()) {
+      return handleError("You are not authorized to delete this image", 403);
+    }
+    
+    // Delete the image file from the server
     const uploadDir = path.join(__dirname, "../public/");
-    if (!image_id) {
-      handleError("Invalid request", 400);
+    const imagePath = path.join(uploadDir, img.imageUrl);
+    
+    try {
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    } catch (err) {
+      console.error("Error deleting image file:", err);
+      // Continue with deletion even if file removal fails
     }
-    let img = await image.findById(image_id);
-    if (!img || img.user != user._id) {
-      handleError("Invalid request", 400);
-    }
-    fs.unlinkSync(path.join(uploadDir, image.imageUrl));
-    await Image.deleteOne({ _id: image_id });
-    res
-      .status(200)
-      .json({ result: true, message: "Image deleted successfully" });
+    
+    // Delete the image from the database
+    await image.findByIdAndDelete(id);
+    
+    return res.status(200).json({
+      result: true,
+      message: "Image deleted successfully"
+    });
+    
   } catch (error) {
+    console.error("Delete image error:", error);
     res
       .status(error.status || 500)
       .json({ result: false, message: error.message });
