@@ -103,6 +103,18 @@ const Navbar = () => {
                         Profile
                       </Link>
                     </li>
+                    
+                    {/* Admin Dashboard Link - only for admin users */}
+                    {user.data.isAdmin && (
+                      <li>
+                        <Link to="/admin" className="menu-item text-primary">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                          </svg>
+                          Admin Dashboard
+                        </Link>
+                      </li>
+                    )}
                     <li>
                       <Link to="/upload/image" className="menu-item">
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

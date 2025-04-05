@@ -1,54 +1,9 @@
 const { handleError } = require("../snippets/error");
-const Admin = require("../database/Schema/admin");
 let Image = require("../database/Schema/image");
-const { login } = require("../snippets/validation");
 const path = require("path");
 const fs = require("fs");
 const user = require("../database/Schema/user");
 
-// === === === admin login === === === //
-
-exports.login = async (req, res) => {
-  try {
-    login(req.body);
-    let { email, username, password } = req.body;
-    let admin = await Admin.findOne(
-      {
-        $or: [email ? { email: email.toLowerCase() } : { username }],
-      },
-      { createdAt: 0, updatedAt: 0 }
-    );
-    if (admin) {
-      if (admin.comparePassword(password)) {
-        let token = await admin.genrateauth(admin);
-        res
-          .status(200)
-          .cookie("admin_auth_tkn", token, {
-            expires: new Date(Date.now() + 86400000),
-            httpOnly: true,
-          })
-          .json({
-            success: true,
-            message: "Login successful",
-            data: {
-              email: admin.email,
-              username: admin.username,
-              role: admin.role,
-              Permissions: admin.permissions,
-            },
-          });
-      } else {
-        handleError("Invalid credentials", 400);
-      }
-    } else {
-      handleError("Invalid credentials", 400);
-    }
-  } catch (error) {
-    res
-      .status(error.status || 500)
-      .json({ result: false, message: error.message });
-  }
-};
 
 // === === == admin profile === === === //
 
@@ -69,9 +24,15 @@ exports.approve_image = async (req, res) => {
   try {
     const admin = req.admin;
     let { image_id } = req.body;
-    if (!image_id || !admin.permissions.includes("write")) {
-      handleError("Invalid request", 400);
+    
+    // Check if admin has write permission
+    const hasPermission = admin.permissions && 
+      (admin.permissions.includes('write') || admin.permissions.includes('superadmin'));
+    
+    if (!image_id || !hasPermission) {
+      handleError("Invalid request or insufficient permissions", 400);
     }
+    
     let result = await Image.updateOne({ _id: image_id }, { approved: true });
     return res
       .status(200)
@@ -89,9 +50,15 @@ exports.de_list = async (req, res) => {
   try {
     const admin = req.admin;
     let { image_id } = req.body;
-    if (!image_id || !admin.permissions.includes("write")) {
-      handleError("Invalid request", 400);
+    
+    // Check if admin has write permission
+    const hasPermission = admin.permissions && 
+      (admin.permissions.includes('write') || admin.permissions.includes('superadmin'));
+    
+    if (!image_id || !hasPermission) {
+      handleError("Invalid request or insufficient permissions", 400);
     }
+    
     let result = await Image.updateOne({ _id: image_id }, { approved: false });
     return res
       .status(200)
@@ -146,16 +113,82 @@ exports.delete_image = async (req, res) => {
 exports.get_user_profile = async (req, res) => {
   try {
     let { username } = req.body;
-    if (!username) {
-      handleError("Invalid request", 400);
+    let query = {};
+    
+    // If username is provided, use it as a search parameter
+    if (username && username.trim() !== '') {
+      query.username = { $regex: new RegExp(username, "i") };
     }
+    
+    // Find users with the query, limit to 50 users max
     let users = await user.find(
-      {
-        username: { $in: new RegExp(username, "i") },
-      },
+      query,
       { jwtTokens: 0, password: 0 }
-    );
-    return res.status(200).json({ result: false, data: users });
+    ).limit(50);
+    
+    return res.status(200).json({ 
+      result: true, 
+      count: users.length,
+      data: users 
+    });
+  } catch (error) {
+    res
+      .status(error.status || 500)
+      .json({ result: false, message: error.message });
+  }
+};
+
+// === === === toggle admin status === === === //
+
+exports.toggle_admin_status = async (req, res) => {
+  try {
+    const admin = req.admin;
+    const { user_id } = req.body;
+    
+    // Check if the admin has proper permissions
+    const hasPermission = 
+      (admin.role === 'superadmin') || 
+      (admin.permissions && admin.permissions.includes('admin-management')) ||
+      (admin.isUserAdmin && admin.permissions && admin.permissions.includes('admin-management'));
+    
+    if (!hasPermission) {
+      handleError("You don't have permission to perform this action", 403);
+    }
+    
+    if (!user_id) {
+      handleError("User ID is required", 400);
+    }
+    
+    const targetUser = await user.findById(user_id);
+    
+    if (!targetUser) {
+      handleError("User not found", 404);
+    }
+    
+    // Toggle the admin status
+    targetUser.isAdmin = !targetUser.isAdmin;
+    
+    // If making user an admin, grant basic permissions
+    if (targetUser.isAdmin && (!targetUser.adminPermissions || targetUser.adminPermissions.length === 0)) {
+      targetUser.adminPermissions = ['read', 'write'];
+    }
+    
+    // If removing admin status, clear admin permissions
+    if (!targetUser.isAdmin) {
+      targetUser.adminPermissions = [];
+    }
+    
+    await targetUser.save();
+    
+    return res.status(200).json({
+      result: true,
+      message: targetUser.isAdmin ? "User is now an admin" : "Admin access has been removed",
+      data: {
+        isAdmin: targetUser.isAdmin,
+        adminPermissions: targetUser.adminPermissions
+      }
+    });
+    
   } catch (error) {
     res
       .status(error.status || 500)

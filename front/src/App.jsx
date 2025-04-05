@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Navbar from "./templates/Navbar";
 import { useDispatch, useSelector } from "react-redux";
@@ -10,6 +10,20 @@ import PinspireGallery from "./pages/PinspireGallery";
 import NotFoundPage from "./pages/NotFoundPage";
 import UploadImage from "./pages/UploadImage";
 import UserProfile from "./pages/UserProfile";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import PendingApprovals from "./pages/admin/PendingApprovals";
+import UserManagement from "./pages/admin/UserManagement";
+
+// Admin route guard component
+const AdminRoute = ({ children }) => {
+  const user = useSelector((state) => state.user);
+  
+  if (!user.logged || !user.data.isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
 
 const App = () => {
   const dispatch = useDispatch();
@@ -61,6 +75,36 @@ const App = () => {
           <>
             <Route path="/profile" element={<Profile />} />
             <Route path="/create" element={<UploadImage />} />
+            
+            {/* Admin Routes */}
+            {User.data.isAdmin && (
+              <>
+                <Route 
+                  path="/admin" 
+                  element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin/approvals" 
+                  element={
+                    <AdminRoute>
+                      <PendingApprovals />
+                    </AdminRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin/users" 
+                  element={
+                    <AdminRoute>
+                      <UserManagement />
+                    </AdminRoute>
+                  } 
+                />
+              </>
+            )}
           </>
         ) : (
           ""

@@ -50,6 +50,14 @@ const UserSchema = new Schema(
         ref: "User",
       },
     ],
+    isAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    adminPermissions: {
+      type: [String],
+      default: []
+    },
     createdAt: {
       type: Date,
       default: Date.now,

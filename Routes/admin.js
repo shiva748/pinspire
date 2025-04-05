@@ -1,18 +1,15 @@
 const express = require("express");
 const {
-  login,
   admin_profile,
   approve_image,
   de_list,
   image_waiting,
   delete_image,
   get_user_profile,
+  toggle_admin_status
 } = require("../controller/admincontroller");
 const Router = express.Router();
 const adminauth = require("../middleware/adminauth");
-// === === === admin login === === === //
-
-Router.post("/login", login);
 
 // === === === admin profile === === === //
 
@@ -37,5 +34,9 @@ Router.post("/deleteimage", adminauth, delete_image);
 // === === === get user profile === === === //
 
 Router.post("/getusers", adminauth, get_user_profile);
+
+// === === === toggle admin status === === === //
+
+Router.post("/toggleadmin", adminauth, toggle_admin_status);
 
 module.exports = Router;

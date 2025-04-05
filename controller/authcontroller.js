@@ -57,6 +57,9 @@ exports.login = async (req, res) => {
               website: user.website,
               followers: user.followers,
               following: user.following,
+              isAdmin: user.isAdmin,
+              adminPermissions: user.adminPermissions,
+              _id: user._id
             },
           });
       } else {
