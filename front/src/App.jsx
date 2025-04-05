@@ -9,6 +9,7 @@ import Profile from "./pages/Profile";
 import PinspireGallery from "./pages/PinspireGallery";
 import NotFoundPage from "./pages/NotFoundPage";
 import UploadImage from "./pages/UploadImage";
+import UserProfile from "./pages/UserProfile";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -65,6 +66,7 @@ const App = () => {
           ""
         )}
         <Route path="/explore" element={<PinspireGallery />} />
+        <Route path="/user/:userId" element={<UserProfile />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Footer />

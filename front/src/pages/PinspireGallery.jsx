@@ -548,7 +548,7 @@ const PinspireGallery = () => {
                         <h3 className="font-medium truncate text-lg group-hover:text-primary transition-colors">{img.title}</h3>
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-2 transition-transform duration-300 group-hover:translate-x-1">
-                            <div className="w-9 h-9 rounded-full bg-base-300 overflow-hidden shadow-sm ring-2 ring-base-200 ring-offset-1">
+                            <Link to={`/user/${img.user?._id}`} className="w-9 h-9 rounded-full bg-base-300 overflow-hidden shadow-sm ring-2 ring-base-200 ring-offset-1">
                               {img.user?.profileImg ? (
                                 <img 
                                   src={`/public/${img.user.profileImg}`} 
@@ -560,10 +560,10 @@ const PinspireGallery = () => {
                                   {img.user?.username?.charAt(0).toUpperCase() || '?'}
                                 </div>
                               )}
-                            </div>
-                            <span className="text-sm font-medium truncate max-w-[100px] opacity-70 group-hover:opacity-100">
+                            </Link>
+                            <Link to={`/user/${img.user?._id}`} className="text-sm font-medium truncate max-w-[100px] opacity-70 group-hover:opacity-100 hover:text-primary">
                               {img.user?.username || 'User'}
-                            </span>
+                            </Link>
                           </div>
                           <div className="flex items-center gap-1 text-base-content/70 group-hover:text-primary/70 transition-colors">
                             <svg className={`w-5 h-5 ${img.likes && img.likes.some(like => user.logged && like.user === user.data._id) ? 'text-red-500 fill-red-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -699,7 +699,7 @@ const PinspireGallery = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <div className="w-12 h-12 rounded-full bg-base-300 overflow-hidden ring-2 ring-primary/20">
+                    <Link to={`/user/${selectedImage.user?._id}`} className="w-12 h-12 rounded-full bg-base-300 overflow-hidden ring-2 ring-primary/20">
                       {selectedImage.user?.profileImg ? (
                         <img 
                           src={`/public/${selectedImage.user.profileImg}`} 
@@ -709,11 +709,13 @@ const PinspireGallery = () => {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-lg font-bold">
                           {selectedImage.user?.username?.charAt(0).toUpperCase() || '?'}
-          </div>
-        )}
-                    </div>
+                        </div>
+                      )}
+                    </Link>
                     <div>
-                      <div className="font-medium text-lg">{selectedImage.user?.username || 'User'}</div>
+                      <Link to={`/user/${selectedImage.user?._id}`} className="font-medium text-lg hover:text-primary">
+                        {selectedImage.user?.username || 'User'}
+                      </Link>
                       <div className="text-xs text-base-content/60">
                         {selectedImage.createdAt && formatDate(selectedImage.createdAt)}
                       </div>

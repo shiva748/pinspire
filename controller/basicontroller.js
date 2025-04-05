@@ -115,7 +115,13 @@ exports.getprofile = async (req, res) => {
     if (!profile) {
       handleError("Invalid request", 404);
     }
-    let images = await image.find({ user: profile._id }, { likes: 0 });
+    let images = await image.find(
+      { user: profile._id, approved: true },
+      { title: 1, description: 1, imageUrl: 1, tags: 1, createdAt: 1 }
+    );
+    
+    console.log("Found images for profile:", images.length);
+    
     return res
       .status(200)
       .json({ result: true, data: { ...profile._doc, images } });
