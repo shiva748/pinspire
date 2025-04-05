@@ -13,6 +13,8 @@ import UserProfile from "./pages/UserProfile";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import PendingApprovals from "./pages/admin/PendingApprovals";
 import UserManagement from "./pages/admin/UserManagement";
+import Messages from "./pages/Messages";
+import Conversation from "./pages/Conversation";
 
 // Admin route guard component
 const AdminRoute = ({ children }) => {
@@ -75,6 +77,8 @@ const App = () => {
           <>
             <Route path="/profile" element={<Profile />} />
             <Route path="/create" element={<UploadImage />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/messages/:conversationId" element={<Conversation />} />
             
             {/* Admin Routes */}
             {User.data.isAdmin && (

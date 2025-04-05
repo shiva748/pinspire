@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setUser } from "../redux/reducers/userSlice";
 import AuthModal from "./Auth";
@@ -8,7 +8,39 @@ const Navbar = () => {
   const user = useSelector((state) => state.user);
   const dispatch = useDispatch();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
   
+  // Fetch unread message count
+  useEffect(() => {
+    if (user.logged) {
+      const fetchUnreadCount = async () => {
+        try {
+          const response = await fetch('/api/chat/unread', {
+            method: 'GET',
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.result) {
+              setUnreadCount(data.unreadCount);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching unread messages:', error);
+        }
+      };
+      
+      // Fetch immediately
+      fetchUnreadCount();
+      
+      // And then every 30 seconds
+      const intervalId = setInterval(fetchUnreadCount, 30000);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [user.logged]);
+
   const logout = async () => {
     try {
       let res = await fetch("/api/auth/logout", {
@@ -66,83 +98,112 @@ const Navbar = () => {
             {/* User section */}
             <div className="flex items-center">
               {user.logged ? (
-                <div className="dropdown dropdown-end">
-                  <div
-                    tabIndex={0}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-base-200">
-                      {user.data.profilePicture ? (
-                        <img
-                          alt="User profile"
-                          src={`/api/images/${user.data.profilePicture}`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-sm font-bold">
-                          {user.data.username?.charAt(0).toUpperCase() || "?"}
-                        </div>
-                      )}
-                    </div>
-                    <span className="hidden md:flex items-center text-base-content font-medium">
-                      {user.data.username || "Account"}
-                      <svg className="w-4 h-4 ml-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </span>
-                  </div>
-                  <ul
-                    tabIndex={0}
-                    className="dropdown-content menu bg-base-100 rounded-xl shadow-xl w-56 p-2 mt-2 border border-base-200 z-[1]"
-                  >
-                    <li>
-                      <Link to="/profile" className="menu-item">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <div className="flex items-center gap-3">
+                  {/* Messages Icon with Badge */}
+                  <Link to="/messages" className="relative p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-base-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 bg-primary text-primary-content text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                  
+                  <div className="dropdown dropdown-end">
+                    <div
+                      tabIndex={0}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-base-200">
+                        {user.data.profilePicture ? (
+                          <img
+                            alt="User profile"
+                            src={`/api/images/${user.data.profilePicture}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary text-primary-content text-sm font-bold">
+                            {user.data.username?.charAt(0).toUpperCase() || "?"}
+                          </div>
+                        )}
+                      </div>
+                      <span className="hidden md:flex items-center text-base-content font-medium">
+                        {user.data.username || "Account"}
+                        <svg className="w-4 h-4 ml-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                         </svg>
-                        Profile
-                      </Link>
-                    </li>
-                    
-                    {/* Admin Dashboard Link - only for admin users */}
-                    {user.data.isAdmin && (
+                      </span>
+                    </div>
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content menu bg-base-100 rounded-xl shadow-xl w-56 p-2 mt-2 border border-base-200 z-[1]"
+                    >
                       <li>
-                        <Link to="/admin" className="menu-item text-primary">
+                        <Link to="/profile" className="menu-item">
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
-                          Admin Dashboard
+                          Profile
                         </Link>
                       </li>
-                    )}
-                    <li>
-                      <Link to="/upload/image" className="menu-item">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Create Pin
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/settings" className="menu-item">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Settings
-                      </Link>
-                    </li>
-                    <div className="border-t border-base-200 mt-1 pt-1">
+                      
+                      {/* Admin Dashboard Link - only for admin users */}
+                      {user.data.isAdmin && (
+                        <li>
+                          <Link to="/admin" className="menu-item text-primary">
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                            Admin Dashboard
+                          </Link>
+                        </li>
+                      )}
                       <li>
-                        <button onClick={logout} className="menu-item text-error hover:bg-error/10">
+                        <Link to="/upload/image" className="menu-item">
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                           </svg>
-                          Log out
-                        </button>
+                          Create Pin
+                        </Link>
                       </li>
-                    </div>
-                  </ul>
+                      <li>
+                        <Link to="/settings" className="menu-item">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Settings
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="/messages" className="menu-item">
+                          <div className="flex items-center w-full">
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Messages
+                            {unreadCount > 0 && (
+                              <span className="ml-auto bg-primary text-primary-content text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      </li>
+                      <div className="border-t border-base-200 mt-1 pt-1">
+                        <li>
+                          <button onClick={logout} className="menu-item text-error hover:bg-error/10">
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Log out
+                          </button>
+                        </li>
+                      </div>
+                    </ul>
+                  </div>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -179,6 +240,19 @@ const Navbar = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
             <span className="text-xs mt-1">Create</span>
+          </NavLink>
+          <NavLink to="/messages" active={isActive("/messages")} isMobile>
+            <div className="relative">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-content text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
+            <span className="text-xs mt-1">Messages</span>
           </NavLink>
           <NavLink to="/profile" active={isActive("/profile")} isMobile>
             <div className="w-6 h-6 rounded-full overflow-hidden">

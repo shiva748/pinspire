@@ -110,3 +110,37 @@ exports.logout = async (req, res) => {
       .json({ result: false, message: error.message });
   }
 };
+
+// Search for users by username
+exports.searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim() === '') {
+      return res.status(200).json({ result: true, users: [] });
+    }
+    
+    // Search for users where username contains the search query (case insensitive)
+    const users = await User.find(
+      { 
+        username: { $regex: q, $options: 'i' } 
+      },
+      { 
+        username: 1, 
+        profilePicture: 1,
+        _id: 1
+      }
+    ).limit(10);
+    
+    return res.status(200).json({ 
+      result: true, 
+      users 
+    });
+  } catch (error) {
+    console.error("Error searching users:", error);
+    return res.status(500).json({ 
+      result: false, 
+      message: error.message || "Failed to search users" 
+    });
+  }
+};

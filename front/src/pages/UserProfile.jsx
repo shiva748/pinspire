@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { followUser, unfollowUser } from "../redux/reducers/userSlice";
+import NewMessageButton from "../components/NewMessageButton";
 
 const UserProfile = () => {
   const { userId } = useParams();
@@ -198,37 +199,43 @@ const UserProfile = () => {
             <p className="text-gray-600 my-2">{userProfile.bio}</p>
           )}
           
-          {userProfile.website && (
-            <a
-              href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline block mt-1"
-            >
-              {userProfile.website}
-            </a>
-          )}
-          
-          {/* Follow/Unfollow Button (only show if logged in and not viewing own profile) */}
-          {currentUser.logged && (
-            <button
-              onClick={handleFollowToggle}
-              disabled={followLoading}
-              className={`mt-4 px-6 py-2 rounded-full font-medium ${
-                isFollowing
-                  ? "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                  : "bg-primary hover:bg-primary-focus text-white"
-              }`}
-            >
-              {followLoading ? (
-                <span className="loading loading-spinner loading-xs"></span>
-              ) : isFollowing ? (
-                "Unfollow"
-              ) : (
-                "Follow"
-              )}
-            </button>
-          )}
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-3 mt-4">
+            {currentUser.logged && currentUser.data._id !== userId && (
+              <>
+                <button
+                  onClick={handleFollowToggle}
+                  className={`btn ${isFollowing ? 'btn-outline' : 'btn-primary'}`}
+                  disabled={followLoading}
+                >
+                  {followLoading ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : isFollowing ? (
+                    'Unfollow'
+                  ) : (
+                    'Follow'
+                  )}
+                </button>
+                
+                <NewMessageButton userId={userId} username={userProfile.username} />
+              </>
+            )}
+            
+            {/* Website link if available */}
+            {userProfile.website && (
+              <a
+                href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Website
+              </a>
+            )}
+          </div>
         </div>
       </div>
       
