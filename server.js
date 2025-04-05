@@ -10,6 +10,7 @@ const image = require("./Routes/image");
 const admin = require("./Routes/admin");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const visitorTracker = require("./middleware/visitorTracker");
 // === === === initialization === === === //
 
 const app = express();
@@ -21,6 +22,9 @@ require("./database/connection");
 app.use(express.json());
 
 app.use(cookieParser());
+
+// === === === visitor tracking === === === //
+app.use(visitorTracker);
 
 // === === === serving files === === === //
 

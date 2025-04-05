@@ -16,7 +16,7 @@ const userId = '67f1826d967b92b585ed40e1';
 async function makeUserSuperAdmin() {
   try {
     // Connect to MongoDB
-    await mongoose.connect('mongodb+srv://s6399587:Panditji23@cluster0.lsg3a7e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
+    await mongoose.connect(process.env.MONGODB || 'mongodb://localhost:27017/pintrest');
     console.log('Connected to MongoDB');
     
     const user = await User.findById(userId);

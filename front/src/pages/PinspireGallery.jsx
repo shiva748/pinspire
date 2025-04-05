@@ -132,8 +132,43 @@ const PinspireGallery = () => {
       setIsLiked(false);
     }
     
+    // Track image view
+    trackImageView(image._id);
+    
     // Prevent scrolling on body when modal is open
     document.body.style.overflow = 'hidden';
+  };
+
+  // Track image view
+  const trackImageView = async (imageId) => {
+    try {
+      const response = await fetch(`/api/image/view/${imageId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the view count in the selected image if needed
+        if (selectedImage && selectedImage._id === imageId) {
+          setSelectedImage(prev => ({
+            ...prev,
+            views: {
+              ...(prev.views || {}),
+              total: data.totalViews,
+              unique: data.uniqueViews
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking image view:', error);
+      // Silent failure - don't show error to user
+    }
   };
 
   // Close image modal
@@ -805,18 +840,33 @@ const PinspireGallery = () => {
                       )}
                     </div>
                     
-                    {selectedImage.tags && selectedImage.tags.length > 0 && (
-                      <button 
-                        className="btn btn-sm btn-ghost"
-                        onClick={() => {
-                          closeImageModal();
-                          setSearch('');
-                          handleTagSelect(selectedImage.tags[0]);
-                        }}
-                      >
-                        View similar pins
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {/* View Stats */}
+                      <div className="flex items-center text-base-content/70 text-sm">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        {selectedImage.views ? (
+                          <span>{selectedImage.views.total?.toLocaleString() || 0}</span>
+                        ) : (
+                          <span>0</span>
+                        )}
+                      </div>
+                    
+                      {selectedImage.tags && selectedImage.tags.length > 0 && (
+                        <button 
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => {
+                            closeImageModal();
+                            setSearch('');
+                            handleTagSelect(selectedImage.tags[0]);
+                          }}
+                        >
+                          View similar pins
+                        </button>
+                      )}
+                    </div>
                   </motion.div>
                 </div>
               </motion.div>

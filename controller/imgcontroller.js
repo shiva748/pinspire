@@ -344,3 +344,156 @@ exports.get_all_images = async (req, res) => {
       .json({ result: false, message: error.message });
   }
 };
+
+// === === === track image view === === === //
+
+exports.track_view = async (req, res) => {
+  try {
+    const { image_id } = req.params;
+    if (!image_id) {
+      return res.status(400).json({ result: false, message: "Image ID is required" });
+    }
+    
+    // Get visitor IP
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    
+    // Find the image
+    const img = await image.findById(image_id);
+    if (!img) {
+      return res.status(404).json({ result: false, message: "Image not found" });
+    }
+    
+    // Only track views for approved images
+    if (!img.approved) {
+      return res.status(400).json({ result: false, message: "Image is not approved" });
+    }
+    
+    // Initialize views object if it doesn't exist
+    if (!img.views) {
+      img.views = {
+        total: 0,
+        unique: 0,
+        viewedBy: []
+      };
+    }
+    
+    // Always increment total views
+    img.views.total += 1;
+    
+    // Check if this IP has viewed before
+    const hasViewed = img.views.viewedBy.some(view => view.ip === ip);
+    
+    // If it's a new viewer, add to unique count
+    if (!hasViewed) {
+      img.views.unique += 1;
+      img.views.viewedBy.push({
+        ip,
+        timestamp: new Date()
+      });
+    } else {
+      // Update timestamp for returning viewer
+      const viewerIndex = img.views.viewedBy.findIndex(view => view.ip === ip);
+      if (viewerIndex !== -1) {
+        img.views.viewedBy[viewerIndex].timestamp = new Date();
+      }
+    }
+    
+    // Limit the size of viewedBy array to prevent it from growing too large
+    // Keep only the most recent 1000 viewers
+    if (img.views.viewedBy.length > 1000) {
+      img.views.viewedBy = img.views.viewedBy
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 1000);
+    }
+    
+    await img.save();
+    
+    return res.status(200).json({
+      result: true,
+      totalViews: img.views.total,
+      uniqueViews: img.views.unique
+    });
+  } catch (error) {
+    console.error('Error tracking view:', error);
+    res
+      .status(error.status || 500)
+      .json({ result: false, message: error.message });
+  }
+};
+
+// === === === get popular images === === === //
+
+exports.get_popular_images = async (req, res) => {
+  try {
+    const { period = 'week', limit = 20 } = req.query;
+    let cutoffDate = new Date();
+    
+    // Determine the cutoff date based on the requested period
+    switch (period) {
+      case 'day':
+        cutoffDate.setDate(cutoffDate.getDate() - 1);
+        break;
+      case 'week':
+        cutoffDate.setDate(cutoffDate.getDate() - 7);
+        break;
+      case 'month':
+        cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+        break;
+      default:
+        cutoffDate.setDate(cutoffDate.getDate() - 7); // Default to week
+    }
+    
+    // Find approved images with recent views
+    const popularImages = await image.aggregate([
+      { $match: { approved: true } },
+      { 
+        $addFields: {
+          // Count recent views (views within the cutoff period)
+          recentViews: {
+            $size: {
+              $filter: {
+                input: "$views.viewedBy",
+                as: "view",
+                cond: { $gte: ["$$view.timestamp", cutoffDate] }
+              }
+            }
+          }
+        }
+      },
+      { $sort: { recentViews: -1, likeCount: -1, "views.total": -1 }},
+      { $limit: parseInt(limit) },
+      { 
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+      { 
+        $addFields: {
+          user: { $arrayElemAt: ["$userDetails", 0] }
+        }
+      },
+      { 
+        $project: {
+          userDetails: 0,
+          "user.password": 0,
+          "user.jwtTokens": 0,
+          "views.viewedBy": 0
+        }
+      }
+    ]);
+    
+    return res.status(200).json({
+      result: true,
+      images: popularImages,
+      period
+    });
+  } catch (error) {
+    console.error('Error getting popular images:', error);
+    res
+      .status(error.status || 500)
+      .json({ result: false, message: error.message });
+  }
+};

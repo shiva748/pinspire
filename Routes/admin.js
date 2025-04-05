@@ -6,7 +6,8 @@ const {
   image_waiting,
   delete_image,
   get_user_profile,
-  toggle_admin_status
+  toggle_admin_status,
+  get_stats
 } = require("../controller/admincontroller");
 const Router = express.Router();
 const adminauth = require("../middleware/adminauth");
@@ -38,5 +39,9 @@ Router.post("/getusers", adminauth, get_user_profile);
 // === === === toggle admin status === === === //
 
 Router.post("/toggleadmin", adminauth, toggle_admin_status);
+
+// === === === get admin stats === === === //
+
+Router.get("/stats", adminauth, get_stats);
 
 module.exports = Router;

@@ -9,6 +9,8 @@ const {
   get_all_images,
   delete_image,
   get_liked_images,
+  track_view,
+  get_popular_images
 } = require("../controller/imgcontroller");
 
 // === === === upload image === === === //
@@ -38,6 +40,14 @@ Router.get("/liked", verify, get_liked_images);
 // === === === delete image === === === //
 
 Router.delete("/:id", verify, delete_image);
+
+// === === === track image view === === === //
+
+Router.post("/view/:image_id", track_view);
+
+// === === === get popular images === === === //
+
+Router.get("/popular", get_popular_images);
 
 // === === === final exports === === === //
 

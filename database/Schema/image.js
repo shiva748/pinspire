@@ -43,6 +43,23 @@ const imageSchema = new Schema({
     type: Number,
     default: 0,
   },
+  views: {
+    total: {
+      type: Number,
+      default: 0
+    },
+    unique: {
+      type: Number,
+      default: 0
+    },
+    viewedBy: [{
+      ip: String,
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  },
   approved: {
     type: Boolean,
     default: false,
