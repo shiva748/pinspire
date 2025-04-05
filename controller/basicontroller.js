@@ -117,7 +117,7 @@ exports.getprofile = async (req, res) => {
     }
     let images = await image.find(
       { user: profile._id, approved: true },
-      { title: 1, description: 1, imageUrl: 1, tags: 1, createdAt: 1 }
+      { title: 1, description: 1, imageUrl: 1, tags: 1, createdAt: 1, likeCount: 1 }
     );
     
     console.log("Found images for profile:", images.length);
