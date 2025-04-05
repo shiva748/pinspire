@@ -234,10 +234,19 @@ exports.get_stats = async (req, res) => {
         _id: null,
         totalViews: { $sum: '$views.total' },
         totalUniqueViews: { $sum: '$views.unique' },
+        totalDownloads: { $sum: '$downloads.total' },
+        totalUniqueDownloads: { $sum: '$downloads.unique' },
         averageViews: { $avg: '$views.total' },
+        averageDownloads: { $avg: '$downloads.total' },
         averageLikes: { $avg: '$likeCount' }
       }}
     ]);
+    
+    // Get most downloaded images (top 10)
+    const mostDownloadedImages = await Image.find({ approved: true })
+      .sort({ 'downloads.total': -1 })
+      .limit(10)
+      .select('title downloads.total downloads.unique');
     
     // Get visitor stats from real data
     // Get the current date at midnight
@@ -318,10 +327,14 @@ exports.get_stats = async (req, res) => {
           pending: pendingImages,
           mostViewed: mostViewedImages,
           mostLiked: mostLikedImages,
+          mostDownloaded: mostDownloadedImages,
           engagement: imageStats.length > 0 ? imageStats[0] : {
             totalViews: 0,
             totalUniqueViews: 0,
+            totalDownloads: 0,
+            totalUniqueDownloads: 0,
             averageViews: 0,
+            averageDownloads: 0,
             averageLikes: 0
           }
         },

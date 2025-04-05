@@ -13,11 +13,15 @@ const AdminDashboard = () => {
     engagement: {
       totalViews: 0,
       totalUniqueViews: 0,
+      totalDownloads: 0,
+      totalUniqueDownloads: 0,
       averageViews: 0,
+      averageDownloads: 0,
       averageLikes: 0
     },
     mostViewedImages: [],
     mostLikedImages: [],
+    mostDownloadedImages: [],
     visitors: {
       total: 0,
       today: 0,
@@ -53,11 +57,15 @@ const AdminDashboard = () => {
               engagement: statsData.data.images.engagement || {
                 totalViews: 0,
                 totalUniqueViews: 0,
+                totalDownloads: 0,
+                totalUniqueDownloads: 0,
                 averageViews: 0,
+                averageDownloads: 0,
                 averageLikes: 0
               },
               mostViewedImages: statsData.data.images.mostViewed || [],
               mostLikedImages: statsData.data.images.mostLiked || [],
+              mostDownloadedImages: statsData.data.images.mostDownloaded || [],
               visitors: {
                 total: statsData.data.visitors.total || 0,
                 today: statsData.data.visitors.today || 0,
@@ -302,10 +310,27 @@ const AdminDashboard = () => {
           </div>
           
           <div className="bg-base-200 p-4 rounded-lg">
+            <h3 className="font-medium text-sm">Total Downloads</h3>
+            <p className="text-2xl font-bold mt-1">{formatNumber(stats.engagement.totalDownloads)}</p>
+          </div>
+          
+          <div className="bg-base-200 p-4 rounded-lg">
+            <h3 className="font-medium text-sm">Unique Downloads</h3>
+            <p className="text-2xl font-bold mt-1">{formatNumber(stats.engagement.totalUniqueDownloads)}</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-base-200 p-4 rounded-lg">
             <h3 className="font-medium text-sm">Avg. Views Per Image</h3>
             <p className="text-2xl font-bold mt-1">{formatNumber(Math.round(stats.engagement.averageViews))}</p>
           </div>
           
+          <div className="bg-base-200 p-4 rounded-lg">
+            <h3 className="font-medium text-sm">Avg. Downloads Per Image</h3>
+            <p className="text-2xl font-bold mt-1">{formatNumber(Math.round(stats.engagement.averageDownloads))}</p>
+          </div>
+
           <div className="bg-base-200 p-4 rounded-lg">
             <h3 className="font-medium text-sm">Avg. Likes Per Image</h3>
             <p className="text-2xl font-bold mt-1">{formatNumber(Math.round(stats.engagement.averageLikes))}</p>
@@ -365,6 +390,33 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
+        
+        {/* Most Downloaded Images */}
+        {stats.mostDownloadedImages.length > 0 && (
+          <div>
+            <h3 className="font-medium mb-3">Most Downloaded Images</h3>
+            <div className="overflow-x-auto">
+              <table className="table table-sm w-full">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th className="text-right">Downloads</th>
+                    <th className="text-right">Unique</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.mostDownloadedImages.map((img, index) => (
+                    <tr key={index} className="hover">
+                      <td className="truncate max-w-[200px]">{img.title}</td>
+                      <td className="text-right">{formatNumber(img.downloads?.total || 0)}</td>
+                      <td className="text-right">{formatNumber(img.downloads?.unique || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </motion.div>
       
       {/* Quick Actions */}

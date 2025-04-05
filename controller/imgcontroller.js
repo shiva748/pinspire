@@ -497,3 +497,79 @@ exports.get_popular_images = async (req, res) => {
       .json({ result: false, message: error.message });
   }
 };
+
+// === === === track image download === === === //
+
+exports.track_download = async (req, res) => {
+  try {
+    const { image_id } = req.params;
+    if (!image_id) {
+      return res.status(400).json({ result: false, message: "Image ID is required" });
+    }
+    
+    // Get visitor IP
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    
+    // Find the image
+    const img = await image.findById(image_id);
+    if (!img) {
+      return res.status(404).json({ result: false, message: "Image not found" });
+    }
+    
+    // Only track downloads for approved images
+    if (!img.approved) {
+      return res.status(400).json({ result: false, message: "Image is not approved" });
+    }
+    
+    // Initialize downloads object if it doesn't exist
+    if (!img.downloads) {
+      img.downloads = {
+        total: 0,
+        unique: 0,
+        downloadedBy: []
+      };
+    }
+    
+    // Always increment total downloads
+    img.downloads.total += 1;
+    
+    // Check if this IP has downloaded before
+    const hasDownloaded = img.downloads.downloadedBy.some(download => download.ip === ip);
+    
+    // If it's a new downloader, add to unique count
+    if (!hasDownloaded) {
+      img.downloads.unique += 1;
+      img.downloads.downloadedBy.push({
+        ip,
+        timestamp: new Date()
+      });
+    } else {
+      // Update timestamp for returning downloader
+      const downloaderIndex = img.downloads.downloadedBy.findIndex(download => download.ip === ip);
+      if (downloaderIndex !== -1) {
+        img.downloads.downloadedBy[downloaderIndex].timestamp = new Date();
+      }
+    }
+    
+    // Limit the size of downloadedBy array to prevent it from growing too large
+    // Keep only the most recent 1000 downloaders
+    if (img.downloads.downloadedBy.length > 1000) {
+      img.downloads.downloadedBy = img.downloads.downloadedBy
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 1000);
+    }
+    
+    await img.save();
+    
+    return res.status(200).json({
+      result: true,
+      totalDownloads: img.downloads.total,
+      uniqueDownloads: img.downloads.unique
+    });
+  } catch (error) {
+    console.error('Error tracking download:', error);
+    res
+      .status(error.status || 500)
+      .json({ result: false, message: error.message });
+  }
+};

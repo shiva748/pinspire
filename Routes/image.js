@@ -10,7 +10,8 @@ const {
   delete_image,
   get_liked_images,
   track_view,
-  get_popular_images
+  get_popular_images,
+  track_download
 } = require("../controller/imgcontroller");
 
 // === === === upload image === === === //
@@ -44,6 +45,10 @@ Router.delete("/:id", verify, delete_image);
 // === === === track image view === === === //
 
 Router.post("/view/:image_id", track_view);
+
+// === === === track image download === === === //
+
+Router.post("/download/:image_id", track_download);
 
 // === === === get popular images === === === //
 

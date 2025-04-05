@@ -60,6 +60,23 @@ const imageSchema = new Schema({
       }
     }]
   },
+  downloads: {
+    total: {
+      type: Number,
+      default: 0
+    },
+    unique: {
+      type: Number,
+      default: 0
+    },
+    downloadedBy: [{
+      ip: String,
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  },
   approved: {
     type: Boolean,
     default: false,
