@@ -10,46 +10,53 @@ exports.getConversations = async (req, res) => {
 
     // Find all conversations where the current user is a participant
     const conversations = await Conversation.find({
-      participants: userId
+      participants: userId,
     })
-    .populate({
-      path: 'participants',
-      select: 'username profilePicture'
-    })
-    .populate({
-      path: 'messages',
-      options: { 
-        sort: { timestamp: -1 },
-        limit: 1 
-      }
-    })
-    .sort({ lastMessageAt: -1 });
+      .populate({
+        path: "participants",
+        select: "username profilePicture",
+      })
+      .populate({
+        path: "messages",
+        options: {
+          sort: { timestamp: -1 },
+          limit: 1,
+        },
+      })
+      .sort({ lastMessageAt: -1 });
 
     // Format the conversations for the frontend
-    const formattedConversations = conversations.map(conv => {
+    const formattedConversations = conversations.map((conv) => {
       // Get the other participant (not the current user)
-      const otherParticipant = conv.participants.find(p => 
-        p._id.toString() !== userId.toString()
+      const otherParticipant = conv.participants.find(
+        (p) => p._id.toString() !== userId.toString()
       );
 
+      // Get the last message (which is already sorted by timestamp in descending order)
+      const lastMessage =
+        conv.messages.length > 0
+          ? conv.messages[conv.messages.length - 1]
+          : null;
       return {
         _id: conv._id,
         otherUser: otherParticipant,
-        lastMessage: conv.messages.length > 0 ? conv.messages[0] : null,
-        hasUnread: conv.unreadBy.some(id => id.toString() === userId.toString()),
-        updatedAt: conv.lastMessageAt || conv.updatedAt
+        lastMessage: lastMessage,
+        hasUnread: conv.unreadBy.some(
+          (id) => id.toString() === userId.toString()
+        ),
+        updatedAt: conv.lastMessageAt || conv.updatedAt,
       };
     });
 
-    return res.status(200).json({ 
-      result: true, 
-      conversations: formattedConversations 
+    return res.status(200).json({
+      result: true,
+      conversations: formattedConversations,
     });
   } catch (error) {
     console.error("Error getting conversations:", error);
-    return res.status(500).json({ 
-      result: false, 
-      message: error.message || "Failed to get conversations" 
+    return res.status(500).json({
+      result: false,
+      message: error.message || "Failed to get conversations",
     });
   }
 };
@@ -61,39 +68,39 @@ exports.getMessages = async (req, res) => {
     const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ 
-        result: false, 
-        message: "Invalid conversation ID" 
+      return res.status(400).json({
+        result: false,
+        message: "Invalid conversation ID",
       });
     }
 
     // Find the conversation and check if user is a participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
-      participants: userId
+      participants: userId,
     }).populate({
-      path: 'participants',
-      select: 'username profilePicture'
+      path: "participants",
+      select: "username profilePicture",
     });
 
     if (!conversation) {
-      return res.status(404).json({ 
-        result: false, 
-        message: "Conversation not found" 
+      return res.status(404).json({
+        result: false,
+        message: "Conversation not found",
       });
     }
 
     // Mark messages as read by the current user
     if (conversation.unreadBy.includes(userId)) {
       conversation.unreadBy = conversation.unreadBy.filter(
-        id => id.toString() !== userId.toString()
+        (id) => id.toString() !== userId.toString()
       );
       await conversation.save();
     }
 
     // Get other participant's info
     const otherParticipant = conversation.participants.find(
-      p => p._id.toString() !== userId.toString()
+      (p) => p._id.toString() !== userId.toString()
     );
 
     return res.status(200).json({
@@ -102,14 +109,14 @@ exports.getMessages = async (req, res) => {
         _id: conversation._id,
         otherUser: otherParticipant,
         messages: conversation.messages,
-        updatedAt: conversation.lastMessageAt || conversation.updatedAt
-      }
+        updatedAt: conversation.lastMessageAt || conversation.updatedAt,
+      },
     });
   } catch (error) {
     console.error("Error getting messages:", error);
-    return res.status(500).json({ 
-      result: false, 
-      message: error.message || "Failed to get messages" 
+    return res.status(500).json({
+      result: false,
+      message: error.message || "Failed to get messages",
     });
   }
 };
@@ -120,10 +127,10 @@ exports.sendMessage = async (req, res) => {
     const { recipientId, content, conversationId } = req.body;
     const senderId = req.user._id;
 
-    if (!content || content.trim() === '') {
-      return res.status(400).json({ 
-        result: false, 
-        message: "Message content cannot be empty" 
+    if (!content || content.trim() === "") {
+      return res.status(400).json({
+        result: false,
+        message: "Message content cannot be empty",
       });
     }
 
@@ -133,37 +140,37 @@ exports.sendMessage = async (req, res) => {
     if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
       conversation = await Conversation.findOne({
         _id: conversationId,
-        participants: senderId
+        participants: senderId,
       });
 
       if (!conversation) {
-        return res.status(404).json({ 
-          result: false, 
-          message: "Conversation not found" 
+        return res.status(404).json({
+          result: false,
+          message: "Conversation not found",
         });
       }
-    } 
+    }
     // Otherwise, find or create a conversation with the recipient
     else if (recipientId && mongoose.Types.ObjectId.isValid(recipientId)) {
       if (recipientId === senderId.toString()) {
-        return res.status(400).json({ 
-          result: false, 
-          message: "Cannot message yourself" 
+        return res.status(400).json({
+          result: false,
+          message: "Cannot message yourself",
         });
       }
 
       // Verify recipient exists
       const recipient = await User.findById(recipientId);
       if (!recipient) {
-        return res.status(404).json({ 
-          result: false, 
-          message: "Recipient not found" 
+        return res.status(404).json({
+          result: false,
+          message: "Recipient not found",
         });
       }
 
       // Look for an existing conversation
       conversation = await Conversation.findOne({
-        participants: { $all: [senderId, recipientId] }
+        participants: { $all: [senderId, recipientId] },
       });
 
       // Create a new conversation if none exists
@@ -171,13 +178,13 @@ exports.sendMessage = async (req, res) => {
         conversation = new Conversation({
           participants: [senderId, recipientId],
           messages: [],
-          unreadBy: []
+          unreadBy: [],
         });
       }
     } else {
-      return res.status(400).json({ 
-        result: false, 
-        message: "Either conversationId or recipientId is required" 
+      return res.status(400).json({
+        result: false,
+        message: "Either conversationId or recipientId is required",
       });
     }
 
@@ -186,7 +193,7 @@ exports.sendMessage = async (req, res) => {
       sender: senderId,
       content,
       timestamp: new Date(),
-      read: false
+      read: false,
     };
 
     conversation.messages.push(newMessage);
@@ -194,7 +201,7 @@ exports.sendMessage = async (req, res) => {
 
     // Add recipient to unreadBy if not already there
     const recipientId2 = conversation.participants.find(
-      p => p.toString() !== senderId.toString()
+      (p) => p.toString() !== senderId.toString()
     );
 
     if (!conversation.unreadBy.includes(recipientId2)) {
@@ -204,15 +211,16 @@ exports.sendMessage = async (req, res) => {
     await conversation.save();
 
     // Return the updated conversation
-    const updatedConversation = await Conversation.findById(conversation._id)
-      .populate({
-        path: 'participants',
-        select: 'username profilePicture'
-      });
+    const updatedConversation = await Conversation.findById(
+      conversation._id
+    ).populate({
+      path: "participants",
+      select: "username profilePicture",
+    });
 
     // Format response
     const otherParticipant = updatedConversation.participants.find(
-      p => p._id.toString() !== senderId.toString()
+      (p) => p._id.toString() !== senderId.toString()
     );
 
     return res.status(201).json({
@@ -222,14 +230,14 @@ exports.sendMessage = async (req, res) => {
         _id: updatedConversation._id,
         otherUser: otherParticipant,
         lastMessage: newMessage,
-        updatedAt: updatedConversation.lastMessageAt
-      }
+        updatedAt: updatedConversation.lastMessageAt,
+      },
     });
   } catch (error) {
     console.error("Error sending message:", error);
-    return res.status(500).json({ 
-      result: false, 
-      message: error.message || "Failed to send message" 
+    return res.status(500).json({
+      result: false,
+      message: error.message || "Failed to send message",
     });
   }
 };
@@ -241,42 +249,42 @@ exports.markAsRead = async (req, res) => {
     const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ 
-        result: false, 
-        message: "Invalid conversation ID" 
+      return res.status(400).json({
+        result: false,
+        message: "Invalid conversation ID",
       });
     }
 
     // Find the conversation and check if user is a participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
-      participants: userId
+      participants: userId,
     });
 
     if (!conversation) {
-      return res.status(404).json({ 
-        result: false, 
-        message: "Conversation not found" 
+      return res.status(404).json({
+        result: false,
+        message: "Conversation not found",
       });
     }
 
     // Remove the user from unreadBy
     if (conversation.unreadBy.includes(userId)) {
       conversation.unreadBy = conversation.unreadBy.filter(
-        id => id.toString() !== userId.toString()
+        (id) => id.toString() !== userId.toString()
       );
       await conversation.save();
     }
 
     return res.status(200).json({
       result: true,
-      message: "Messages marked as read"
+      message: "Messages marked as read",
     });
   } catch (error) {
     console.error("Error marking messages as read:", error);
-    return res.status(500).json({ 
-      result: false, 
-      message: error.message || "Failed to mark messages as read" 
+    return res.status(500).json({
+      result: false,
+      message: error.message || "Failed to mark messages as read",
     });
   }
 };
@@ -285,33 +293,35 @@ exports.markAsRead = async (req, res) => {
 exports.getUnreadCount = async (req, res) => {
   try {
     const user = req.user;
-    
+
     // Find all conversations where the user is a participant
     const conversations = await Conversation.find({
-      participants: user._id
+      participants: user._id,
     });
-    
+
     if (!conversations || conversations.length === 0) {
       return res.status(200).json({ result: true, unreadCount: 0 });
     }
-    
+
     // Count unread messages across all conversations
     let unreadCount = 0;
-    
+
     // Method 1: Count by unreadBy array membership
-    const unreadConversations = conversations.filter(conv => 
-      conv.unreadBy && conv.unreadBy.some(id => id.toString() === user._id.toString())
+    const unreadConversations = conversations.filter(
+      (conv) =>
+        conv.unreadBy &&
+        conv.unreadBy.some((id) => id.toString() === user._id.toString())
     );
-    
+
     return res.status(200).json({
       result: true,
-      unreadCount: unreadConversations.length
+      unreadCount: unreadConversations.length,
     });
   } catch (error) {
     console.error("Error getting unread count:", error);
-    return res.status(500).json({ 
-      result: false, 
-      message: error.message || "Failed to get unread count" 
+    return res.status(500).json({
+      result: false,
+      message: error.message || "Failed to get unread count",
     });
   }
-}; 
+};

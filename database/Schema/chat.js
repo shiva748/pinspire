@@ -13,6 +13,30 @@ const messageSchema = new Schema({
     required: true,
     trim: true
   },
+  // File related information
+  isFile: {
+    type: Boolean,
+    default: false
+  },
+  fileUrl: {
+    type: String,
+    trim: true
+  },
+  fileName: {
+    type: String,
+    trim: true
+  },
+  uniqueFileName: {
+    type: String,
+    trim: true
+  },
+  fileType: {
+    type: String,
+    trim: true
+  },
+  fileSize: {
+    type: Number
+  },
   read: {
     type: Boolean,
     default: false

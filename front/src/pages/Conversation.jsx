@@ -3,6 +3,9 @@ import { useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../context/SocketContext';
+import EmojiPicker from 'emoji-picker-react';
+import { v4 as uuidv4 } from 'uuid';
+import { saveAs } from 'file-saver';
 
 const Conversation = () => {
   const { conversationId } = useParams();
@@ -18,9 +21,12 @@ const Conversation = () => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
   const [socketStatus, setSocketStatus] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   const messagesEndRef = useRef(null);
   const messageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   
   // Fetch conversation and messages
   useEffect(() => {
@@ -50,6 +56,21 @@ const Conversation = () => {
         const data = await response.json();
         
         if (data.result) {
+          // Process messages to ensure file messages are properly marked
+          if (data.conversation.messages && data.conversation.messages.length > 0) {
+            data.conversation.messages = data.conversation.messages.map(message => {
+              // Check if it's a file message (has fileUrl and fileName)
+              if (message.fileUrl && message.fileName) {
+                return { ...message, isFile: true };
+              }
+              // Check if content starts with [File] but doesn't have isFile flag
+              if (message.content && message.content.startsWith('[File]') && !message.isFile) {
+                return { ...message, isFile: true };
+              }
+              return message;
+            });
+          }
+          
           setConversation(data.conversation);
           setOtherUser(data.conversation.otherUser);
           setMessages(data.conversation.messages);
@@ -88,6 +109,12 @@ const Conversation = () => {
     const handleNewMessage = (data) => {
       if (data.conversationId === conversationId) {
         console.log('[Conversation] Received new message:', data.message.content);
+        
+        // Ensure the message has the isFile property set when it contains file info
+        if (data.message.fileUrl && data.message.fileName) {
+          data.message.isFile = true;
+        }
+        
         setMessages(prev => [...prev, data.message]);
         
         // Mark as read immediately
@@ -100,6 +127,11 @@ const Conversation = () => {
     const handleMessageSent = (data) => {
       if (data.conversationId === conversationId) {
         console.log('[Conversation] Message sent confirmation received');
+        
+        // Ensure the message has the isFile property set when it contains file info
+        if (data.message.fileUrl && data.message.fileName) {
+          data.message.isFile = true;
+        }
         
         // Update the placeholder message with the confirmed one
         setMessages(prev => {
@@ -235,6 +267,121 @@ const Conversation = () => {
     return groups;
   };
   
+  // Handle emoji click
+  const onEmojiClick = (emojiData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+    messageInputRef.current?.focus();
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check file size (limit to 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size too large. Maximum allowed is 5MB.');
+      return;
+    }
+    
+    try {
+      setIsUploading(true);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('conversationId', conversationId);
+      
+      const response = await fetch('/api/chat/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (!data.result) {
+        throw new Error(data.message || 'Failed to upload file');
+      }
+      
+      // Extract the unique filename from the fileUrl
+      const uniqueFileName = data.fileUrl.split('/').pop();
+      
+      // Generate a temporary ID for optimistic UI update
+      const tempId = `temp-${uuidv4()}`;
+      
+      // Create a temporary message for immediate display
+      const tempMessage = {
+        _id: tempId,
+        sender: user.data._id,
+        content: `[File] ${file.name}`,
+        fileUrl: data.fileUrl,
+        fileName: file.name,         // Original file name for display
+        uniqueFileName,              // Unique file name for retrieval
+        fileType: file.type,
+        fileSize: file.size,
+        timestamp: new Date().toISOString(),
+        read: false,
+        pending: true,
+        isFile: true
+      };
+      
+      // Add message to UI
+      setMessages(prev => [...prev, tempMessage]);
+      
+      // Send file message via socket
+      if (socket && connected) {
+        socket.emit('sendFileMessage', {
+          conversationId,
+          fileUrl: data.fileUrl,
+          fileName: file.name,
+          uniqueFileName,
+          fileType: file.type,
+          fileSize: file.size
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError(error.message || 'Failed to upload file');
+    } finally {
+      setIsUploading(false);
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Handle file download
+  const handleFileDownload = (fileUrl, fileName, uniqueFileName) => {
+    try {
+      if (!fileUrl) {
+        setError('File URL is missing');
+        return;
+      }
+      
+      // For display to user, use the original filename if available
+      const displayName = fileName || 'download';
+      
+      // For actual file retrieval, use uniqueFileName if available, otherwise extract from URL
+      const downloadFilename = uniqueFileName || fileUrl.split('/').pop() || displayName;
+      
+      // Convert relative URL to absolute
+      const absoluteUrl = fileUrl.startsWith('http') 
+        ? fileUrl 
+        : `${window.location.origin}${fileUrl}`;
+      
+      console.log(`Downloading file from URL: ${absoluteUrl}, filename: ${displayName}, uniqueFileName: ${downloadFilename}`);
+      
+      // Download file
+      saveAs(absoluteUrl, displayName);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      setError('Failed to download file: ' + (error.message || 'Unknown error'));
+    }
+  };
+  
   // Send a message
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -248,7 +395,7 @@ const Conversation = () => {
       const messageContent = newMessage;
       
       // Generate a unique ID for the temporary message
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${uuidv4()}`;
       
       // Create a temporary message for immediate display
       const tempMessage = {
@@ -332,6 +479,75 @@ const Conversation = () => {
       </div>
     );
   }
+
+  // Render file message content
+  const renderMessageContent = (message) => {
+    // First, check if this is a file message
+    if (message.isFile || (message.fileUrl && message.fileName) || (message.content && message.content.startsWith('[File]'))) {
+      // Extract file information
+      let fileName = message.fileName;
+      let fileType = message.fileType;
+      let fileSize = message.fileSize;
+      
+      // If fileName is not present but content starts with [File], extract from content
+      if (!fileName && message.content && message.content.startsWith('[File]')) {
+        fileName = message.content.replace('[File] ', '');
+      }
+      
+      // Determine file type if not explicitly provided
+      if (!fileType && fileName) {
+        const extension = fileName.split('.').pop().toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+          fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+        } else if (extension === 'pdf') {
+          fileType = 'application/pdf';
+        }
+      }
+      
+      const isImage = fileType && fileType.startsWith('image/');
+      const isPdf = fileType === 'application/pdf';
+      
+      return (
+        <div className="file-message">
+          {isImage && message.fileUrl ? (
+            <div className="mb-2">
+              <img 
+                src={message.fileUrl} 
+                alt={fileName || 'Image'}
+                className="max-w-full rounded-md max-h-52 object-contain bg-base-300 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => handleFileDownload(message.fileUrl, fileName, message.uniqueFileName)}
+              />
+            </div>
+          ) : null}
+          
+          <div 
+            className="flex items-center gap-2 bg-base-300/50 p-2 rounded-md cursor-pointer hover:bg-base-300 transition-colors"
+            onClick={() => message.fileUrl && handleFileDownload(message.fileUrl, fileName, message.uniqueFileName)}
+          >
+            <div className="file-icon text-lg">
+              {isPdf ? '📄' : isImage ? '🖼️' : '📎'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm truncate">{fileName || 'File'}</div>
+              <div className="text-xs opacity-70">
+                {fileSize ? `${Math.round(fileSize / 1024)} KB` : ''}
+              </div>
+            </div>
+            {message.fileUrl && (
+              <div className="download-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // Regular text message
+    return <p className="break-words text-sm md:text-base">{message.content}</p>;
+  };
 
   return (
     <div className="container mx-auto px-0 md:px-2 py-0 max-w-4xl h-[calc(100vh-4rem)] flex flex-col bg-base-100/80 shadow-lg rounded-md overflow-hidden">
@@ -472,7 +688,7 @@ const Conversation = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <p className="break-words text-sm md:text-base">{message.content}</p>
+                        {renderMessageContent(message)}
                         <div className="text-xs opacity-70 text-right mt-1 flex items-center justify-end gap-1">
                           {formatMessageTime(message.timestamp)}
                           {message.pending ? (
@@ -500,13 +716,69 @@ const Conversation = () => {
         )}
       </motion.div>
       
+      {/* Emoji picker */}
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div 
+            className="absolute bottom-[80px] right-4 z-20 shadow-xl rounded-lg overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+          >
+            <div className="bg-base-100 p-2 border border-base-300">
+              <EmojiPicker 
+                onEmojiClick={onEmojiClick}
+                searchDisabled={false}
+                width={320}
+                height={400}
+                previewConfig={{ showPreview: false }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       {/* Message input - enhanced with better styling */}
       <motion.div 
         className="p-3 bg-base-200 border-t border-base-300 shadow-inner"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <form onSubmit={handleSendMessage} className="flex space-x-2">
+        <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
+          {/* File upload button */}
+          <div className="relative">
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+            />
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className="btn btn-circle btn-sm btn-ghost text-base-content/70 hover:text-base-content hover:bg-base-300"
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </button>
+          </div>
+          
+          {/* Emoji button */}
+          <button 
+            type="button" 
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="btn btn-circle btn-sm btn-ghost text-base-content/70 hover:text-base-content hover:bg-base-300"
+          >
+            <div className="text-xl">😊</div>
+          </button>
+          
           <input
             type="text"
             ref={messageInputRef}
@@ -514,12 +786,13 @@ const Conversation = () => {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             className="input input-bordered focus:input-primary flex-1 bg-base-100 shadow-sm"
-            disabled={isSending}
+            disabled={isSending || isUploading}
           />
+          
           <button 
             type="submit" 
             className="btn btn-primary shadow-md" 
-            disabled={!newMessage.trim() || isSending}
+            disabled={(!newMessage.trim() && !isUploading) || isSending}
           >
             {isSending ? (
               <span className="loading loading-spinner loading-xs"></span>

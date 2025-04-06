@@ -18,6 +18,8 @@ const { Conversation } = require("./database/Schema/chat");
 const User = require("./database/Schema/user");
 const cookie = require("cookie");
 const jwt = require("jsonwebtoken");
+const busboy = require("busboy");
+const fs = require("fs");
 
 // === === === initialization === === === //
 
@@ -36,6 +38,33 @@ const io = socketIo(server, {
 
 // Track online users and their socket IDs
 const onlineUsers = new Map(); // userId -> socketId
+
+// Setup directory for file uploads
+const chatFilesDir = path.join(__dirname, 'public', 'chat_files');
+
+// Create directory if it doesn't exist
+if (!fs.existsSync(chatFilesDir)) {
+  fs.mkdirSync(chatFilesDir, { recursive: true });
+}
+
+// Serve chat files directly
+app.use("/api/chat/files", express.static(path.join(__dirname, "public", "chat_files")));
+
+// Allowed file types
+const allowedMimeTypes = [
+  'image/jpeg', 
+  'image/png', 
+  'image/gif', 
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+];
 
 require("./database/connection");
 
@@ -64,6 +93,198 @@ app.use("/api/image", image);
 app.use("/api/admin", admin);
 
 app.use("/api/chat", chat);
+
+// Handle file uploads for chat using busboy
+app.post('/api/chat/upload', (req, res) => {
+  try {
+    // Check if user is authenticated
+    if (!req.cookies.auth_tkn) {
+      return res.status(401).json({
+        result: false,
+        message: 'Not authenticated'
+      });
+    }
+    
+    // Verify token
+    let userId;
+    try {
+      const decoded = jwt.verify(req.cookies.auth_tkn, process.env.KEY);
+      userId = decoded._id;
+    } catch (jwtError) {
+      return res.status(401).json({
+        result: false,
+        message: 'Invalid authentication token'
+      });
+    }
+    
+    let conversationId;
+    let fileUrl;
+    let fileName;
+    let fileType;
+    let fileSize;
+    let fileSavePath;
+    let fileWriteStream;
+    
+    const bb = busboy({ 
+      headers: req.headers,
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+        files: 1 // Only allow 1 file
+      }
+    });
+    
+    // Handle non-file fields (like conversationId)
+    bb.on('field', (name, val) => {
+      if (name === 'conversationId') {
+        conversationId = val;
+      }
+    });
+    
+    // Handle file upload
+    bb.on('file', async (name, file, info) => {
+      const { filename, encoding, mimeType } = info;
+      
+      // Check if file type is allowed
+      if (!allowedMimeTypes.includes(mimeType)) {
+        return res.status(400).json({
+          result: false,
+          message: 'File type not allowed'
+        });
+      }
+      
+      // Create unique filename
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const fileExt = path.extname(filename);
+      const uniqueFilename = `${uniqueSuffix}${fileExt}`;
+      
+      // Save file info for later use
+      fileName = filename;
+      fileType = mimeType;
+      // Store the actual, accessible URL for the file - using the dedicated file serving route
+      fileUrl = `/api/chat/files/${uniqueFilename}`;
+      fileSavePath = path.join(chatFilesDir, uniqueFilename);
+      
+      // Create write stream for file
+      fileWriteStream = fs.createWriteStream(fileSavePath);
+      
+      // Track file size
+      let size = 0;
+      
+      // Pipe file data to the file system
+      file.on('data', (data) => {
+        size += data.length;
+        
+        // Check if exceeding size limit during upload
+        if (size > 5 * 1024 * 1024) {
+          file.resume(); // Stop reading
+          fileWriteStream.end();
+          
+          // Clean up the partial file
+          fs.unlink(fileSavePath, () => {});
+          
+          res.status(400).json({
+            result: false,
+            message: 'File too large, maximum 5MB allowed'
+          });
+          return;
+        }
+        
+        fileWriteStream.write(data);
+      });
+      
+      file.on('end', () => {
+        fileWriteStream.end();
+        fileSize = size;
+      });
+    });
+    
+    // Handle upload completion
+    bb.on('close', async () => {
+      try {
+        // Validate we have required data
+        if (!conversationId) {
+          // Clean up file if it was uploaded
+          if (fileSavePath && fs.existsSync(fileSavePath)) {
+            fs.unlink(fileSavePath, () => {});
+          }
+          
+          return res.status(400).json({
+            result: false,
+            message: 'Missing conversation ID'
+          });
+        }
+        
+        // Check if user is part of the conversation
+        const conversation = await Conversation.findOne({
+          _id: conversationId,
+          participants: userId
+        });
+        
+        if (!conversation) {
+          // Clean up the file
+          if (fileSavePath && fs.existsSync(fileSavePath)) {
+            fs.unlink(fileSavePath, () => {});
+          }
+          
+          return res.status(403).json({
+            result: false,
+            message: 'Not authorized to upload to this conversation'
+          });
+        }
+        
+        // Extract the unique filename from the fileUrl or the file path
+        const uniqueFileName = fileUrl.split('/').pop() || path.basename(fileSavePath);
+        
+        // Return success with file URL and metadata
+        res.json({
+          result: true,
+          fileUrl: fileUrl,
+          fileName: fileName,
+          uniqueFileName: uniqueFileName,  // Include the unique filename in the response
+          fileType: fileType,
+          fileSize: fileSize
+        });
+      } catch (error) {
+        console.error('Error in busboy close handler:', error);
+        
+        // Clean up the file if there was an error
+        if (fileSavePath && fs.existsSync(fileSavePath)) {
+          fs.unlink(fileSavePath, () => {});
+        }
+        
+        res.status(500).json({
+          result: false,
+          message: 'Server error processing upload'
+        });
+      }
+    });
+    
+    // Handle busboy errors
+    bb.on('error', (err) => {
+      console.error('Busboy error:', err);
+      
+      // Clean up the file if there was an error
+      if (fileSavePath && fs.existsSync(fileSavePath)) {
+        fs.unlink(fileSavePath, () => {});
+      }
+      
+      res.status(500).json({
+        result: false,
+        message: 'Error processing upload'
+      });
+    });
+    
+    // Pipe request to busboy
+    req.pipe(bb);
+    
+  } catch (error) {
+    console.error('Error in file upload route:', error);
+    res.status(500).json({
+      result: false,
+      message: 'Server error'
+    });
+  }
+});
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -170,7 +391,7 @@ io.on('connection', (socket) => {
           socket.emit('error', { message: 'Invalid message data' });
           return;
         }
-        
+        console.log(data);
         const { conversationId, content } = data;
         
         // Find the conversation
@@ -299,6 +520,89 @@ io.on('connection', (socket) => {
       } catch (error) {
         console.error('Error checking online status:', error);
         socket.emit('error', { message: 'Failed to check online status' });
+      }
+    });
+    
+    // Handle file message
+    socket.on('sendFileMessage', async (data) => {
+      try {
+        if (!data || !data.conversationId || !data.fileUrl || !data.fileName) {
+          console.error('Invalid sendFileMessage data:', data);
+          socket.emit('error', { message: 'Invalid file message data' });
+          return;
+        }
+        console.log(data);
+        const { conversationId, fileUrl, fileName, fileType, fileSize } = data;
+        
+        // Extract the unique filename from the fileUrl
+        const uniqueFileName = fileUrl.split('/').pop();
+        
+        // Find the conversation
+        const conversation = await Conversation.findOne({
+          _id: conversationId,
+          participants: socket.user._id
+        });
+        
+        if (!conversation) {
+          console.error(`Conversation not found: ${conversationId}`);
+          socket.emit('error', { message: 'Conversation not found' });
+          return;
+        }
+        
+        // Get recipient (the other participant)
+        const recipientId = conversation.participants.find(
+          p => p.toString() !== socket.user._id.toString()
+        );
+        
+        if (!recipientId) {
+          console.error(`Recipient not found in conversation: ${conversationId}`);
+          socket.emit('error', { message: 'Recipient not found' });
+          return;
+        }
+        
+        // Add file message to conversation
+        const newMessage = {
+          sender: socket.user._id,
+          content: `[File] ${fileName}`,
+          fileUrl,
+          fileName,          // Original filename for display
+          uniqueFileName,    // Unique filename for retrieval
+          fileType,
+          fileSize,
+          timestamp: new Date(),
+          read: false,
+          isFile: true
+        };
+        
+        conversation.messages.push(newMessage);
+        conversation.lastMessageAt = new Date();
+        
+        // Mark as unread for recipient
+        if (!conversation.unreadBy.includes(recipientId)) {
+          conversation.unreadBy.push(recipientId);
+        }
+        
+        await conversation.save();
+        
+        // Get the saved message with the assigned _id
+        const savedMessage = conversation.messages[conversation.messages.length - 1];
+        
+        // Emit message to recipient
+        io.to(recipientId.toString()).emit('newMessage', {
+          message: savedMessage,
+          conversationId
+        });
+        
+        // Emit back to sender with the saved message (with _id)
+        socket.emit('messageSent', {
+          message: savedMessage,
+          conversationId
+        });
+        
+        console.log(`File message sent from ${socket.user.username} to conversation ${conversationId}`);
+      } catch (error) {
+        console.error('Error sending file message via socket:', error);
+        socket.emit('error', { message: 'Failed to send file message' });
       }
     });
     

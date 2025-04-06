@@ -6,12 +6,12 @@
  * 2. Run with: node scripts/make-superadmin.js
  */
 
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../database/Schema/user');
 
 // Replace with the MongoDB _id of the user you want to make superadmin
-const userId = '67f1826d967b92b585ed40e1';
+const userId = '67f241c1fe922b5da9ee1881';
 
 async function makeUserSuperAdmin() {
   try {
