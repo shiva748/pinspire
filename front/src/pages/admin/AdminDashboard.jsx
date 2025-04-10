@@ -21,14 +21,7 @@ const AdminDashboard = () => {
     },
     mostViewedImages: [],
     mostLikedImages: [],
-    mostDownloadedImages: [],
-    visitors: {
-      total: 0,
-      today: 0,
-      week: 0,
-      trend: [],
-      popularPaths: []
-    }
+    mostDownloadedImages: []
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,14 +58,7 @@ const AdminDashboard = () => {
               },
               mostViewedImages: statsData.data.images.mostViewed || [],
               mostLikedImages: statsData.data.images.mostLiked || [],
-              mostDownloadedImages: statsData.data.images.mostDownloaded || [],
-              visitors: {
-                total: statsData.data.visitors.total || 0,
-                today: statsData.data.visitors.today || 0,
-                week: statsData.data.visitors.week || 0,
-                trend: statsData.data.visitors.trend || [],
-                popularPaths: statsData.data.visitors.popularPaths || []
-              }
+              mostDownloadedImages: statsData.data.images.mostDownloaded || []
             });
           }
         } else {
@@ -196,97 +182,6 @@ const AdminDashboard = () => {
           </div>
         </motion.div>
       </div>
-      
-      {/* Visitor Stats */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-base-100 rounded-lg p-6 shadow-md mb-8"
-      >
-        <h2 className="text-xl font-semibold mb-4">Visitor Statistics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-base-200 p-4 rounded-lg">
-            <div className="flex justify-between">
-              <h3 className="font-medium">Total Visitors</h3>
-              <span className="text-info">All time</span>
-            </div>
-            <p className="text-3xl font-bold mt-2">{formatNumber(stats.visitors.total)}</p>
-          </div>
-          
-          <div className="bg-base-200 p-4 rounded-lg">
-            <div className="flex justify-between">
-              <h3 className="font-medium">Today's Visitors</h3>
-              <span className="text-success">
-                {stats.visitors.today > 0 ? `${Math.floor((stats.visitors.today / stats.visitors.total) * 100)}%` : '0%'}
-              </span>
-            </div>
-            <p className="text-3xl font-bold mt-2">{formatNumber(stats.visitors.today)}</p>
-          </div>
-          
-          <div className="bg-base-200 p-4 rounded-lg">
-            <div className="flex justify-between">
-              <h3 className="font-medium">Weekly Visitors</h3>
-              <span className="text-warning">
-                {stats.visitors.week > 0 ? `${Math.floor((stats.visitors.week / stats.visitors.total) * 100)}%` : '0%'}
-              </span>
-            </div>
-            <p className="text-3xl font-bold mt-2">{formatNumber(stats.visitors.week)}</p>
-          </div>
-        </div>
-        
-        {/* Daily Visitor Trend */}
-        {stats.visitors.trend.length > 0 && (
-          <div className="mt-6">
-            <h3 className="font-medium mb-3">Daily Visitor Trend (Last 7 Days)</h3>
-            <div className="bg-base-200 p-4 rounded-lg">
-              <div className="flex h-40 items-end space-x-2">
-                {stats.visitors.trend.map((day, index) => {
-                  const maxCount = Math.max(...stats.visitors.trend.map(d => d.count));
-                  const height = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
-                  return (
-                    <div key={index} className="flex flex-col items-center flex-1">
-                      <div 
-                        className="bg-primary w-full rounded-t-sm" 
-                        style={{ height: `${height}%`, minHeight: day.count > 0 ? '10%' : '0' }}
-                      ></div>
-                      <div className="text-xs mt-2 text-center">
-                        {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                      </div>
-                      <div className="text-xs font-bold">{day.count}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Popular Pages */}
-        {stats.visitors.popularPaths.length > 0 && (
-          <div className="mt-6">
-            <h3 className="font-medium mb-3">Most Visited Pages</h3>
-            <div className="overflow-x-auto">
-              <table className="table table-sm w-full">
-                <thead>
-                  <tr>
-                    <th>Page</th>
-                    <th className="text-right">Views</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.visitors.popularPaths.map((path, index) => (
-                    <tr key={index} className="hover">
-                      <td>{path._id}</td>
-                      <td className="text-right">{formatNumber(path.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </motion.div>
       
       {/* Image Engagement Stats */}
       <motion.div 

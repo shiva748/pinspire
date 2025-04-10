@@ -200,9 +200,6 @@ exports.toggle_admin_status = async (req, res) => {
 
 exports.get_stats = async (req, res) => {
   try {
-    // Import Visitor model
-    const Visitor = require("../database/Schema/visitor");
-    
     // Get total users count
     const totalUsers = await user.countDocuments();
     
@@ -248,73 +245,6 @@ exports.get_stats = async (req, res) => {
       .limit(10)
       .select('title downloads.total downloads.unique');
     
-    // Get visitor stats from real data
-    // Get the current date at midnight
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Get the date 7 days ago at midnight
-    const weekAgo = new Date(today);
-    weekAgo.setDate(today.getDate() - 7);
-    
-    // Total visitors (count unique IPs)
-    const totalIPs = await Visitor.distinct('ip');
-    const totalVisitors = totalIPs.length;
-    
-    // Today's visitors (count unique IPs from today)
-    const todayIPs = await Visitor.distinct('ip', {
-      timestamp: { $gte: today }
-    });
-    const todayVisitors = todayIPs.length;
-    
-    // This week's visitors (count unique IPs from past 7 days)
-    const weeklyIPs = await Visitor.distinct('ip', {
-      timestamp: { $gte: weekAgo }
-    });
-    const weeklyVisitors = weeklyIPs.length;
-    
-    // Get visitor trend data
-    const lastDays = 7;
-    const dailyVisitors = [];
-    
-    for (let i = 0; i < lastDays; i++) {
-      const day = new Date();
-      day.setDate(day.getDate() - i);
-      day.setHours(0, 0, 0, 0);
-      
-      const nextDay = new Date(day);
-      nextDay.setDate(nextDay.getDate() + 1);
-      
-      const uniqueIPs = await Visitor.distinct('ip', {
-        timestamp: { 
-          $gte: day, 
-          $lt: nextDay 
-        }
-      });
-      
-      dailyVisitors.push({
-        date: day.toISOString().split('T')[0],
-        count: uniqueIPs.length
-      });
-    }
-    
-    // Get most visited paths (excluding API calls)
-    const popularPaths = await Visitor.aggregate([
-      { 
-        $match: { 
-          path: { $not: /^\/api\// } 
-        } 
-      },
-      { 
-        $group: {
-          _id: "$path",
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
-    
     return res.status(200).json({
       result: true,
       data: {
@@ -337,13 +267,6 @@ exports.get_stats = async (req, res) => {
             averageDownloads: 0,
             averageLikes: 0
           }
-        },
-        visitors: {
-          total: totalVisitors,
-          today: todayVisitors,
-          week: weeklyVisitors,
-          trend: dailyVisitors,
-          popularPaths: popularPaths
         }
       }
     });

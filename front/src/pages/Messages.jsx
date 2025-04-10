@@ -253,7 +253,7 @@ const Messages = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-3xl">
+    <div className="container mx-auto px-4 py-6 max-w-3xl flex flex-col min-h-[calc(100vh-4rem)]">
       <motion.div 
         className="flex justify-between items-center mb-6"
         initial={{ opacity: 0, y: -10 }}
@@ -389,127 +389,129 @@ const Messages = () => {
         </div>
       )}
       
-      {/* Empty state with improved visual */}
-      {conversations.length === 0 && !isLoading && !error ? (
-        <motion.div 
-          className="text-center py-12 bg-base-200 rounded-xl shadow-md"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="text-6xl mb-4 opacity-80">💬</div>
-          <h3 className="text-xl font-medium mb-3">No messages yet</h3>
-          <p className="text-base-content/60 max-w-md mx-auto mb-6">
-            When you start a conversation with someone, it will appear here.
-          </p>
-          <Link to="/explore" className="btn btn-primary btn-md shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-            </svg>
-            Find People to Chat With
-          </Link>
-        </motion.div>
-      ) : (
-        <motion.div 
-          className="space-y-2 bg-base-100 rounded-xl shadow-lg overflow-hidden border border-base-200"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {/* Conversation list header */}
-          <div className="bg-base-200 px-4 py-3 font-medium text-sm text-base-content/70 flex justify-between items-center border-b border-base-300">
-            <span>Recent Conversations</span>
-            <span className="badge badge-sm">{conversations.length}</span>
-          </div>
-          
-          {/* Conversations list */}
-          <div className="divide-y divide-base-200">
-            <AnimatePresence>
-              {conversations.map((conversation) => {
-                const isOnline = isUserOnline(conversation.otherUser._id);
-                
-                return (
-                <motion.div 
-                  key={conversation._id}
-                  className={`flex items-center p-4 cursor-pointer hover:bg-base-200 transition-colors ${
-                    conversation.hasUnread ? 'bg-base-200/50' : 'bg-base-100'
-                  }`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  onClick={() => navigate(`/messages/${conversation._id}`)}
-                  whileHover={{ x: 5 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {/* User avatar with online indicator */}
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center shadow-md">
-                      {conversation.otherUser.profilePicture ? (
-                        <img 
-                          src={`/api/images/${conversation.otherUser.profilePicture}`} 
-                          alt={conversation.otherUser.username}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xl font-bold text-primary">
-                          {conversation.otherUser.username.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    {conversation.hasUnread && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-content rounded-full border-2 border-base-100 flex items-center justify-center text-xs font-bold shadow-sm">
-                        !
-                      </div>
-                    )}
-                    {isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full border-2 border-base-100 animate-pulse"></div>
-                    )}
-                  </div>
+      {/* Main content - flex-grow to push footer down */}
+      <div className="flex-grow">
+        {conversations.length === 0 && !isLoading && !error ? (
+          <motion.div 
+            className="text-center py-12 bg-base-200 rounded-xl shadow-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="text-6xl mb-4 opacity-80">💬</div>
+            <h3 className="text-xl font-medium mb-3">No messages yet</h3>
+            <p className="text-base-content/60 max-w-md mx-auto mb-6">
+              When you start a conversation with someone, it will appear here.
+            </p>
+            <Link to="/explore" className="btn btn-primary btn-md shadow-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+              </svg>
+              Find People to Chat With
+            </Link>
+          </motion.div>
+        ) : (
+          <motion.div 
+            className="space-y-2 bg-base-100 rounded-xl shadow-lg overflow-hidden border border-base-200"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {/* Conversation list header */}
+            <div className="bg-base-200 px-4 py-3 font-medium text-sm text-base-content/70 flex justify-between items-center border-b border-base-300">
+              <span>Recent Conversations</span>
+              <span className="badge badge-sm">{conversations.length}</span>
+            </div>
+            
+            {/* Conversations list */}
+            <div className="divide-y divide-base-200">
+              <AnimatePresence>
+                {conversations.map((conversation) => {
+                  const isOnline = isUserOnline(conversation.otherUser._id);
                   
-                  {/* Message preview */}
-                  <div className="ml-4 flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <h3 className={`font-semibold truncate ${conversation.hasUnread ? 'text-base-content' : 'text-base-content/90'}`}>
-                        {conversation.otherUser.username}
-                        {isOnline && <span className="ml-2 text-xs text-success">•</span>}
-                      </h3>
-                      <span className="text-xs text-base-content/60 whitespace-nowrap ml-2 tabular-nums">
-                        {formatDate(conversation.updatedAt)}
-                      </span>
+                  return (
+                  <motion.div 
+                    key={conversation._id}
+                    className={`flex items-center p-4 cursor-pointer hover:bg-base-200 transition-colors ${
+                      conversation.hasUnread ? 'bg-base-200/50' : 'bg-base-100'
+                    }`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    onClick={() => navigate(`/messages/${conversation._id}`)}
+                    whileHover={{ x: 5 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* User avatar with online indicator */}
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center shadow-md">
+                        {conversation.otherUser.profilePicture ? (
+                          <img 
+                            src={`/api/images/${conversation.otherUser.profilePicture}`} 
+                            alt={conversation.otherUser.username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xl font-bold text-primary">
+                            {conversation.otherUser.username.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      {conversation.hasUnread && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-content rounded-full border-2 border-base-100 flex items-center justify-center text-xs font-bold shadow-sm">
+                          !
+                        </div>
+                      )}
+                      {isOnline && (
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full border-2 border-base-100 animate-pulse"></div>
+                      )}
                     </div>
                     
-                    <p className={`text-sm truncate ${
-                      conversation.hasUnread 
-                        ? 'font-medium text-base-content' 
-                        : 'text-base-content/70'
-                    }`}>
-                      {conversation.lastMessage ? (
-                        conversation.lastMessage.sender.toString() === user.data._id ? (
-                          <span className="flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                            <span>You: {getMessagePreview(conversation.lastMessage)}</span>
-                          </span>
+                    {/* Message preview */}
+                    <div className="ml-4 flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <h3 className={`font-semibold truncate ${conversation.hasUnread ? 'text-base-content' : 'text-base-content/90'}`}>
+                          {conversation.otherUser.username}
+                          {isOnline && <span className="ml-2 text-xs text-success">•</span>}
+                        </h3>
+                        <span className="text-xs text-base-content/60 whitespace-nowrap ml-2 tabular-nums">
+                          {formatDate(conversation.updatedAt)}
+                        </span>
+                      </div>
+                      
+                      <p className={`text-sm truncate ${
+                        conversation.hasUnread 
+                          ? 'font-medium text-base-content' 
+                          : 'text-base-content/70'
+                      }`}>
+                        {conversation.lastMessage ? (
+                          conversation.lastMessage.sender.toString() === user.data._id ? (
+                            <span className="flex items-center gap-1">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                              </svg>
+                              <span>You: {getMessagePreview(conversation.lastMessage)}</span>
+                            </span>
+                          ) : (
+                            getMessagePreview(conversation.lastMessage)
+                          )
                         ) : (
-                          getMessagePreview(conversation.lastMessage)
-                        )
-                      ) : (
-                        <span className="text-base-content/50 italic">No messages yet</span>
-                      )}
-                    </p>
-                  </div>
-                  
-                  {/* Right arrow icon */}
-                  <div className="ml-2 text-base-content/40">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </motion.div>
-              )})}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      )}
+                          <span className="text-base-content/50 italic">No messages yet</span>
+                        )}
+                      </p>
+                    </div>
+                    
+                    {/* Right arrow icon */}
+                    <div className="ml-2 text-base-content/40">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </motion.div>
+                )})}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
