@@ -81,7 +81,7 @@ app.use(cookieParser());
 app.use("/api/images", express.static(path.join(__dirname, "public")));
 
 // Serve the frontend build files
-app.use(express.static(path.join(__dirname, "front/dist")));
+app.use(express.static("./front/dist"));
 
 // === === === use of routes === === === //
 
