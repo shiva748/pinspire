@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
 const User = require('../database/Schema/user');
 
 // Replace with the MongoDB _id of the user you want to make superadmin
-const userId = '67f241c1fe922b5da9ee1881';
+const userId = '680a23640052d183636a66f2';
 
 async function makeUserSuperAdmin() {
   try {
