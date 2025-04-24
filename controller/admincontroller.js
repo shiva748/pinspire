@@ -74,8 +74,10 @@ exports.de_list = async (req, res) => {
 
 exports.image_waiting = async (req, res) => {
   try {
-    let images = await Image.find({ approved: false });
-    return res.status(200).json({ result: false, data: images });
+    let images = await Image.find({ approved: false })
+      .populate('user', 'username email profilePicture bio')
+      .sort({ createdAt: -1 });
+    return res.status(200).json({ result: true, data: images });
   } catch (error) {
     res
       .status(error.status || 500)
