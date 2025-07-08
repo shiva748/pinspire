@@ -77,11 +77,11 @@ app.use(cookieParser());
 
 // === === === serving files === === === //
 
+app.use(express.static("./front/dist"));
 // Serve all static files from public directory
 app.use("/api/images", express.static(path.join(__dirname, "public")));
 
-// Serve the frontend build files
-app.use(express.static("./front/dist"));
+
 
 // === === === use of routes === === === //
 
@@ -369,10 +369,10 @@ io.use(async (socket, next) => {
 });
 
 // === === === serving frontend === === === //
-
-app.use(express.static(path.join(__dirname, "./front/dist")));
+// Serve the frontend build files
+// Handle client-side routing
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "./front/dist/index.html"));
+  res.sendFile(path.join(__dirname, "front/dist", "index.html"));
 });
 
 // Handle socket connections
