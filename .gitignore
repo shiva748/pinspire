@@ -19,7 +19,6 @@ yarn-error.log*
 
 # Build files
 /build
-/dist
 /.next
 
 # Database
